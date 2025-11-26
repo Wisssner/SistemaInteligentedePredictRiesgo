@@ -1,5 +1,38 @@
+# Entornos virtuales
 venv/
+env/
+ENV/
+
+# Cachés de Python
 __pycache__/
 *.pyc
-__pycache__/
-*.pyc
+*.pyo
+*.pyd
+
+# Archivos de configuración sensibles
+.env
+
+# Modelos pesados
+*.pkl
+*.joblib
+*.h5
+*.model
+
+# Datos (datasets, exportaciones, etc.)
+*.xlsx
+*.csv
+*.json
+data/
+datasets/
+
+# Imágenes y visualizaciones
+*.png
+*.jpg
+*.jpeg
+
+# Logs
+*.log
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
