@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4"><i class="bi bi-file-earmark-spreadsheet"></i> Predicción Masiva</h2>
+    
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Subir Archivo Excel</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <strong>Columnas requeridas:</strong><br>
+                        crop ID, soil_type, Seedling Stage, MOI, temp, humidity
+                    </div>
+                    
+                    <form id="uploadForm">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" id="fileInput" accept=".xlsx,.xls" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-upload"></i> Subir y Predecir
+                        </button>
+                    </form>
+                    
+                    <div id="loading" class="text-center mt-3" style="display:none;">
+                        <div class="spinner-border text-success"></div>
+                        <p class="mt-2">Procesando...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card shadow-sm" id="resultsCard" style="display:none;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Resultados (<span id="totalCount">0</span> predicciones)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-striped">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>Fila</th>
+                                    <th>Cultivo</th>
+                                    <th>Predicción</th>
+                                    <th>Confianza</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTable"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="stat-box bg-success text-white">
+                                <h3 id="yesCount">0</h3>
+                                <p>Requieren Riego</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-box bg-danger text-white">
+                                <h3 id="noCount">0</h3>
+                                <p>No Requieren Riego</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files[0]) return;
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('resultsCard').style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/predict-batch', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error: ' + result.error);
+            return;
+        }
+        
+        let yesCount = 0;
+        let noCount = 0;
+        let tableHTML = '';
+        
+        result.predictions.forEach(pred => {
+            if (pred.prediction === 'Requiere Riego') yesCount++;
+            else noCount++;
+            
+            const badgeClass = pred.prediction === 'Requiere Riego' ? 'bg-success' : 'bg-danger';
+            tableHTML += `
+                <tr>
+                    <td>${pred.row}</td>
+                    <td>${pred.crop}</td>
+                    <td><span class="badge ${badgeClass}">${pred.prediction}</span></td>
+                    <td>${pred.confidence}</td>
+                </tr>
+            `;
+        });
+        
+        document.getElementById('resultsTable').innerHTML = tableHTML;
+        document.getElementById('totalCount').textContent = result.total;
+        document.getElementById('yesCount').textContent = yesCount;
+        document.getElementById('noCount').textContent = noCount;
+        document.getElementById('resultsCard').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error al procesar el archivo');
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

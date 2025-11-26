@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <h2 class="mb-4"><i class="bi bi-graph-up"></i> Dashboard - Datos Históricos Firebase</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card stat-card-dashboard bg-primary text-white">
+                <div class="card-body">
+                    <h3 id="avgTemp">--°C</h3>
+                    <p>Temperatura Promedio</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card-dashboard bg-info text-white">
+                <div class="card-body">
+                    <h3 id="avgHum">--%</h3>
+                    <p>Humedad Promedio</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card stat-card-dashboard bg-success text-white">
+                <div class="card-body">
+                    <h3 id="totalRecords">--</h3>
+                    <p>Total de Registros</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Temperatura en el Tiempo</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Humedad en el Tiempo</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="humChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Datos Recientes (últimos 50 registros)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-striped table-sm">
+                            <thead class="sticky-top bg-white">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Timestamp</th>
+                                    <th>Temperatura (°C)</th>
+                                    <th>Humedad (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let tempChart, humChart;
+
+async function loadData() {
+    const response = await fetch('/api/firebase-data');
+    const data = await response.json();
+    
+    if (data.length === 0) return;
+    
+    const temps = data.map(d => d.temperatura);
+    const hums = data.map(d => d.humedad);
+    const labels = data.map((d, i) => i + 1);
+    
+    document.getElementById('avgTemp').textContent = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1) + '°C';
+    document.getElementById('avgHum').textContent = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1) + '%';
+    document.getElementById('totalRecords').textContent = data.length;
+    
+    if (tempChart) tempChart.destroy();
+    if (humChart) humChart.destroy();
+    
+    const displayData = data.slice(-100);
+    const displayTemps = displayData.map(d => d.temperatura);
+    const displayHums = displayData.map(d => d.humedad);
+    const displayLabels = displayData.map((d, i) => i + 1);
+    
+    tempChart = new Chart(document.getElementById('tempChart'), {
+        type: 'line',
+        data: {
+            labels: displayLabels,
+            datasets: [{
+                label: 'Temperatura (°C)',
+                data: displayTemps,
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {legend: {display: true}}
+        }
+    });
+    
+    humChart = new Chart(document.getElementById('humChart'), {
+        type: 'line',
+        data: {
+            labels: displayLabels,
+            datasets: [{
+                label: 'Humedad (%)',
+                data: displayHums,
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {legend: {display: true}}
+        }
+    });
+    
+    let tableHTML = '';
+    displayData.slice(-50).reverse().forEach((d, idx) => {
+        tableHTML += `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${d.timestamp}</td>
+                <td><span class="badge bg-danger">${d.temperatura}°C</span></td>
+                <td><span class="badge bg-info">${d.humedad}%</span></td>
+            </tr>
+        `;
+    });
+    document.getElementById('dataTable').innerHTML = tableHTML;
+}
+
+loadData();
+setInterval(loadData, 5000);
+</script>
+{% endblock %}

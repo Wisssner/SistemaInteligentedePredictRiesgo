@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="mb-4"><i class="bi bi-droplet-half"></i> Predicción Individual - Necesidad de Riego</h2>
+    
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Formulario de Predicción</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <strong><i class="bi bi-cloud-download"></i> Datos de Firebase:</strong><br>
+                        Temp: <strong>{{ temperatura }}°C</strong> | 
+                        Humedad: <strong>{{ humedad }}%</strong><br>
+                        <small>Última actualización: {{ timestamp }}</small>
+                    </div>
+                    
+                    <form id="predictionForm">
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Cultivo</label>
+                            <select class="form-select" name="crop_id" required>
+                                <option value="Wheat">Wheat</option>
+                                <option value="Chilli">Chilli</option>
+                                <option value="Potato">Potato</option>
+                                <option value="Carrot">Carrot</option>
+                                <option value="Tomato">Tomato</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de Suelo</label>
+                            <select class="form-select" name="soil_type" required>
+                                <option value="Black Soil">Black Soil</option>
+                                <option value="Clay Soil">Clay Soil</option>
+                                <option value="Sandy Soil">Sandy Soil</option>
+                                <option value="Red Soil">Red Soil</option>
+                                <option value="Loam Soil">Loam Soil</option>
+                                <option value="Alluvial Soil">Alluvial Soil</option>
+                                <option value="Chalky Soil">Chalky Soil</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Etapa de Desarrollo</label>
+                            <select class="form-select" name="seedling_stage" required>
+                                <option value="Germination">Germination</option>
+                                <option value="Seedling Stage">Seedling Stage</option>
+                                <option value="Vegetative Growth / Root or Tuber Development">Vegetative Growth</option>
+                                <option value="Flowering">Flowering</option>
+                                <option value="Pollination">Pollination</option>
+                                <option value="Fruit/Grain/Bulb Formation">Fruit Formation</option>
+                                <option value="Maturation">Maturation</option>
+                                <option value="Harvest">Harvest</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-droplet-half"></i> MOI - Humedad del Suelo (0-100)
+                                <span class="badge bg-success ms-2" id="moi_category">{{ moi_category }}</span>
+                            </label>
+                            <input type="number" class="form-control bg-light" id="moi" name="moi" min="0" max="100" step="0.1" value="{{ moi|round(1) }}" readonly required>
+                            <small class="text-muted">
+                                <i class="bi bi-magic"></i> Calculado automáticamente con lógica difusa
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">
+                                Temperatura (°C)
+                                <span class="badge bg-info" id="tempValue">{{ temperatura }}°C</span>
+                            </label>
+                            <input type="range" class="form-range" id="temp" name="temp" min="13" max="46" step="0.1" value="{{ temperatura }}">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">13°C</small>
+                                <small class="text-muted">46°C</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">
+                                Humedad Ambiental (%)
+                                <span class="badge bg-info" id="humValue">{{ humedad }}%</span>
+                            </label>
+                            <input type="range" class="form-range" id="humidity" name="humidity" min="0" max="100" step="0.1" value="{{ humedad }}">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">0%</small>
+                                <small class="text-muted">100%</small>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            <i class="bi bi-droplet-fill"></i> Predecir Necesidad de Riego
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card shadow-sm" id="resultCard" style="display:none;">
+                <div class="card-header text-white" id="resultHeader">
+                    <h5 class="mb-0">Resultado de la Predicción</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="display-1" id="resultIcon"></i>
+                        <h2 class="mt-3" id="resultText"></h2>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stat-box">
+                                <h4 id="probYes" class="text-success">0%</h4>
+                                <p class="text-muted">Prob. Requiere Riego</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-box">
+                                <h4 id="probNo" class="text-danger">0%</h4>
+                                <p class="text-muted">Prob. No Requiere</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="progress" style="height: 30px;">
+                            <div class="progress-bar bg-success" id="yesBar" style="width: 0%"></div>
+                            <div class="progress-bar bg-danger" id="noBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gráfico Interactivo 3D -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h6 class="mb-0 text-white">
+                        <i class="bi bi-graph-up"></i> Superficie Difusa MOI 3D - Interactivo
+                    </h6>
+                </div>
+                <div class="card-body p-2">
+                    <div id="fuzzy3DChart" style="height: 450px;"></div>
+                    
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <small class="text-muted d-block">Temperatura</small>
+                                <strong class="text-primary" id="current3DTemp">-</strong>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">Humedad</small>
+                                <strong class="text-success" id="current3DHum">-</strong>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">MOI Calculado</small>
+                                <strong class="text-danger" id="current3DMoi">-</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3 mb-0" style="font-size: 0.85rem;">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Interacción:</strong> Usa el mouse para rotar la vista 3D. 
+                        Mueve los sliders de temperatura y humedad para ver cambios en tiempo real.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Reglas Difusas Simplificadas -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <h6 class="mb-0 text-white">
+                        <i class="bi bi-lightbulb"></i> Reglas de Inferencia Difusa
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="rulesAccordion">
+                        <!-- Regla 1 -->
+                        <div class="accordion-item border-0 mb-2">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-danger bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule1">
+                                    <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                                    <strong>CRÍTICO:</strong> Muy Seco (MOI: 5-15)
+                                </button>
+                            </h2>
+                            <div id="rule1" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                                <div class="accordion-body">
+                                    <strong>Condición:</strong> Temp > 38°C Y Humedad < 30%<br>
+                                    <strong>Efecto:</strong> Evapotranspiración extrema. Riesgo alto de estrés hídrico.<br>
+                                    <span class="badge bg-danger">Requiere riego inmediato</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Regla 2 -->
+                        <div class="accordion-item border-0 mb-2">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-warning bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule2">
+                                    <i class="bi bi-droplet-half text-warning me-2"></i>
+                                    <strong>SECO:</strong> Bajo-Moderado (MOI: 15-35)
+                                </button>
+                            </h2>
+                            <div id="rule2" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                                <div class="accordion-body">
+                                    <strong>Condición:</strong> Temp > 30°C Y Humedad < 50%<br>
+                                    <strong>Efecto:</strong> Evaporación acelerada. Suelo perdiendo humedad.<br>
+                                    <span class="badge bg-warning">Monitoreo frecuente</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Regla 3 -->
+                        <div class="accordion-item border-0 mb-2">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-success bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule3">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    <strong>ÓPTIMO:</strong> Ideal (MOI: 45-65)
+                                </button>
+                            </h2>
+                            <div id="rule3" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                                <div class="accordion-body">
+                                    <strong>Condición:</strong> Temp 25-30°C Y Humedad 50-70%<br>
+                                    <strong>Efecto:</strong> Balance perfecto entre retención y evaporación.<br>
+                                    <span class="badge bg-success">Condiciones ideales</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Regla 4 -->
+                        <div class="accordion-item border-0">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-primary bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule4">
+                                    <i class="bi bi-cloud-rain-fill text-primary me-2"></i>
+                                    <strong>SATURADO:</strong> Alto-Muy Alto (MOI: 70-95)
+                                </button>
+                            </h2>
+                            <div id="rule4" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                                <div class="accordion-body">
+                                    <strong>Condición:</strong> Temp < 20°C Y Humedad > 75%<br>
+                                    <strong>Efecto:</strong> Baja evaporación. Alta retención hídrica.<br>
+                                    <span class="badge bg-primary">No requiere riego</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+<script>
+// ============================================
+// LÓGICA DIFUSA MEJORADA Y SIMPLIFICADA
+// ============================================
+
+function calcularMoiFuzzy(temperatura, humedad) {
+    let moi = 50; // Valor base
+    
+    // REGLA 1: CRÍTICO - Muy Seco (evapotranspiración extrema)
+    if (temperatura > 38 && humedad < 30) {
+        let stress = ((temperatura - 38) / 8) * 0.5 + ((30 - humedad) / 30) * 0.5;
+        moi = 5 + stress * 10;
+        return Math.max(5, Math.min(15, moi));
+    }
+    
+    // REGLA 2: SECO - Moderado (alta evaporación)
+    if (temperatura > 30 && humedad < 50) {
+        let deficit = ((temperatura - 30) / 16) * 0.6 + ((50 - humedad) / 50) * 0.4;
+        moi = 15 + deficit * 20;
+        return Math.max(15, Math.min(35, moi));
+    }
+    
+    // REGLA 3: SATURADO - Muy Alto (baja evaporación, alta retención)
+    if (temperatura < 20 && humedad > 75) {
+        let saturation = ((20 - temperatura) / 7) * 0.4 + ((humedad - 75) / 25) * 0.6;
+        moi = 70 + saturation * 25;
+        return Math.max(70, Math.min(95, moi));
+    }
+    
+    // REGLA 4: ÓPTIMO - Zona ideal (balance perfecto)
+    if (temperatura >= 25 && temperatura <= 30 && humedad >= 50 && humedad <= 70) {
+        let temp_opt = 1 - Math.abs(temperatura - 27.5) / 2.5;
+        let hum_opt = 1 - Math.abs(humedad - 60) / 10;
+        moi = 50 + (temp_opt * hum_opt) * 15;
+        return Math.max(45, Math.min(65, moi));
+    }
+    
+    // REGLA GENERAL: Cálculo basado en balance hídrico
+    let temp_norm = (temperatura - 13) / (46 - 13);
+    let hum_norm = humedad / 100;
+    let evap_factor = Math.pow(temp_norm, 1.5);
+    let retention_factor = Math.pow(hum_norm, 0.8);
+    
+    moi = 50 + (retention_factor * 40) - (evap_factor * 30);
+    return Math.max(10, Math.min(90, moi));
+}
+
+function getMoiCategory(moi) {
+    if (moi < 15) return "Muy Seco";
+    else if (moi < 35) return "Seco";
+    else if (moi < 45) return "Bajo";
+    else if (moi < 65) return "Óptimo";
+    else if (moi < 80) return "Alto";
+    else return "Saturado";
+}
+
+function getMoiColor(moi) {
+    if (moi < 15) return '#dc3545';
+    else if (moi < 35) return '#fd7e14';
+    else if (moi < 45) return '#ffc107';
+    else if (moi < 65) return '#28a745';
+    else if (moi < 80) return '#17a2b8';
+    else return '#007bff';
+}
+
+// ============================================
+// GRÁFICO 3D INTERACTIVO CON PLOTLY
+// ============================================
+
+function crear3DChart() {
+    const tempRange = [];
+    const humRange = [];
+    const moiSurface = [];
+    
+    // Generar malla 3D
+    for (let t = 13; t <= 46; t += 1) {
+        tempRange.push(t);
+    }
+    for (let h = 0; h <= 100; h += 2) {
+        humRange.push(h);
+    }
+    
+    // Calcular MOI para cada combinación
+    for (let h of humRange) {
+        const row = [];
+        for (let t of tempRange) {
+            row.push(calcularMoiFuzzy(t, h));
+        }
+        moiSurface.push(row);
+    }
+    
+    // Crear superficie 3D
+    const surfaceTrace = {
+        type: 'surface',
+        x: tempRange,
+        y: humRange,
+        z: moiSurface,
+        colorscale: [
+            [0, '#dc3545'],    // Rojo (Muy Seco)
+            [0.15, '#fd7e14'], // Naranja (Seco)
+            [0.35, '#ffc107'], // Amarillo (Bajo)
+            [0.55, '#28a745'], // Verde (Óptimo)
+            [0.75, '#17a2b8'], // Cyan (Alto)
+            [1, '#007bff']     // Azul (Saturado)
+        ],
+        showscale: true,
+        colorbar: {
+            title: 'MOI',
+            titleside: 'right',
+            tickmode: 'linear',
+            tick0: 0,
+            dtick: 20
+        },
+        hovertemplate: 'Temp: %{x}°C<br>Hum: %{y}%<br>MOI: %{z:.1f}<extra></extra>',
+        contours: {
+            z: {
+                show: true,
+                usecolormap: true,
+                highlightcolor: "#42f462",
+                project: {z: true}
+            }
+        }
+    };
+    
+    const layout = {
+        title: {
+            text: 'Superficie Difusa MOI',
+            font: {size: 16}
+        },
+        scene: {
+            xaxis: {title: 'Temperatura (°C)', gridcolor: '#ddd'},
+            yaxis: {title: 'Humedad (%)', gridcolor: '#ddd'},
+            zaxis: {title: 'MOI', gridcolor: '#ddd'},
+            camera: {
+                eye: {x: 1.5, y: 1.5, z: 1.3}
+            }
+        },
+        autosize: true,
+        margin: {l: 0, r: 0, b: 0, t: 40},
+        paper_bgcolor: '#f8f9fa',
+        plot_bgcolor: '#f8f9fa'
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+        modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+    };
+    
+    Plotly.newPlot('fuzzy3DChart', [surfaceTrace], layout, config);
+}
+
+function actualizar3DPoint(temp, hum, moi) {
+    const pointTrace = {
+        type: 'scatter3d',
+        mode: 'markers',
+        x: [temp],
+        y: [hum],
+        z: [moi],
+        marker: {
+            size: 12,
+            color: 'red',
+            symbol: 'diamond',
+            line: {
+                color: 'white',
+                width: 2
+            }
+        },
+        name: 'Punto Actual',
+        hovertemplate: `<b>Punto Actual</b><br>Temp: ${temp.toFixed(1)}°C<br>Hum: ${hum.toFixed(1)}%<br>MOI: ${moi.toFixed(1)}<extra></extra>`
+    };
+    
+    Plotly.deleteTraces('fuzzy3DChart', 1);
+    Plotly.addTraces('fuzzy3DChart', pointTrace);
+}
+
+// ============================================
+// ACTUALIZACIÓN DE UI
+// ============================================
+
+function actualizarMoi() {
+    const temperatura = parseFloat(document.getElementById('temp').value);
+    const humedad = parseFloat(document.getElementById('humidity').value);
+    
+    if (isNaN(temperatura) || isNaN(humedad)) return;
+    
+    const moi = calcularMoiFuzzy(temperatura, humedad);
+    
+    // Actualizar valores en UI
+    document.getElementById('moi').value = moi.toFixed(1);
+    document.getElementById('moi_category').textContent = getMoiCategory(moi);
+    document.getElementById('tempValue').textContent = temperatura.toFixed(1) + '°C';
+    document.getElementById('humValue').textContent = humedad.toFixed(1) + '%';
+    
+    // Actualizar indicadores 3D
+    document.getElementById('current3DTemp').textContent = temperatura.toFixed(1) + '°C';
+    document.getElementById('current3DHum').textContent = humedad.toFixed(1) + '%';
+    document.getElementById('current3DMoi').textContent = moi.toFixed(1);
+    
+    // Actualizar punto en gráfico 3D
+    actualizar3DPoint(temperatura, humedad, moi);
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+document.getElementById('temp').addEventListener('input', actualizarMoi);
+document.getElementById('humidity').addEventListener('input', actualizarMoi);
+
+// Inicialización
+window.addEventListener('load', function() {
+    crear3DChart();
+    actualizarMoi();
+});
+
+// ============================================
+// LÓGICA DE PREDICCIÓN
+// ============================================
+
+document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = {
+        crop_id: formData.get('crop_id'),
+        soil_type: formData.get('soil_type'),
+        seedling_stage: formData.get('seedling_stage'),
+        moi: formData.get('moi'),
+        temp: formData.get('temp'),
+        humidity: formData.get('humidity')
+    };
+    
+    const response = await fetch('/api/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('resultText').textContent = result.prediction_text;
+    document.getElementById('probYes').textContent = (result.probability_yes * 100).toFixed(2) + '%';
+    document.getElementById('probNo').textContent = (result.probability_no * 100).toFixed(2) + '%';
+    document.getElementById('yesBar').style.width = (result.probability_yes * 100) + '%';
+    document.getElementById('noBar').style.width = (result.probability_no * 100) + '%';
+    
+    if (result.prediction == 1) {
+        document.getElementById('resultHeader').className = 'card-header bg-success text-white';
+        document.getElementById('resultIcon').className = 'bi bi-droplet-fill text-success display-1';
+    } else {
+        document.getElementById('resultHeader').className = 'card-header bg-danger text-white';
+        document.getElementById('resultIcon').className = 'bi bi-x-circle-fill text-danger display-1';
+    }
+    
+    // Scroll to result
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+</script>
+
+<style>
+.stat-box {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+}
+
+.form-range::-webkit-slider-thumb {
+    background: #0d6efd;
+}
+
+.form-range::-moz-range-thumb {
+    background: #0d6efd;
+}
+</style>
+{% endblock %}

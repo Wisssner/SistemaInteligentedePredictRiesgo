@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5 fw-bold">
+                <i class="bi bi-lightbulb-fill text-warning"></i> Agente de Recomendaciones Agrícolas
+            </h1>
+            <p class="lead text-muted">Sistema inteligente de consejos personalizados para optimizar tu cultivo</p>
+        </div>
+    </div>
+
+    <!-- Formulario de entrada -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-sliders"></i> Configuración del Cultivo</h5>
+        </div>
+        <div class="card-body">
+            <form id="formRecomendaciones">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Tipo de Cultivo</label>
+                        <select class="form-select" id="crop_id" required>
+                            <option value="Wheat">Trigo (Wheat)</option>
+                            <option value="Rice">Arroz (Rice)</option>
+                            <option value="Maize">Maíz (Maize)</option>
+                            <option value="Sugarcane">Caña de Azúcar (Sugarcane)</option>
+                            <option value="Cotton">Algodón (Cotton)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Tipo de Suelo</label>
+                        <select class="form-select" id="soil_type" required>
+                            <option value="Black Soil">Suelo Negro (Black Soil)</option>
+                            <option value="Clay Soil">Suelo Arcilloso (Clay Soil)</option>
+                            <option value="Red Soil">Suelo Rojo (Red Soil)</option>
+                            <option value="Loamy Soil">Suelo Franco (Loamy Soil)</option>
+                            <option value="Sandy Soil">Suelo Arenoso (Sandy Soil)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Etapa de Crecimiento</label>
+                        <select class="form-select" id="seedling_stage" required>
+                            <option value="Germination">Germinación (Germination)</option>
+                            <option value="Vegetative">Vegetativo (Vegetative)</option>
+                            <option value="Flowering">Floración (Flowering)</option>
+                            <option value="Ripening">Maduración (Ripening)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Temperatura (°C)</label>
+                        <input type="number" class="form-control" id="temp" value="{{ temperatura }}" step="0.1"
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Humedad Ambiental (%)</label>
+                        <input type="number" class="form-control" id="humidity" value="{{ humedad }}" step="0.1"
+                            required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">MOI (Índice de Humedad)</label>
+                        <input type="number" class="form-control" id="moi" value="{{ moi }}" step="0.1" required>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-robot"></i> Generar Recomendaciones
+                    </button>
+                    <small class="text-muted ms-3">
+                        <i class="bi bi-clock"></i> Última actualización: {{ timestamp }}
+                    </small>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultados" style="display: none;">
+        <!-- Score de Salud del Cultivo -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> Estado de Salud del Cultivo</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <canvas id="scoreGauge" width="300" height="200"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <h2 class="display-4 fw-bold mb-3" id="scoreValue">--</h2>
+                        <h5 id="scoreEstado" class="text-muted">--</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recomendaciones Prioritarias -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> Recomendaciones Prioritarias</h5>
+            </div>
+            <div class="card-body">
+                <div id="prioridades"></div>
+            </div>
+        </div>
+
+        <!-- Tabs de Recomendaciones por Categoría -->
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="recTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#fertilizacion">
+                            <i class="bi bi-droplet-fill text-success"></i> Fertilización
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#plagas">
+                            <i class="bi bi-bug-fill text-danger"></i> Plagas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#manejo">
+                            <i class="bi bi-gear-fill text-info"></i> Manejo
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#riego">
+                            <i class="bi bi-water text-primary"></i> Riego
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="fertilizacion"></div>
+                    <div class="tab-pane fade" id="plagas"></div>
+                    <div class="tab-pane fade" id="manejo"></div>
+                    <div class="tab-pane fade" id="riego"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let scoreChart = null;
+
+    document.getElementById('formRecomendaciones').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const data = {
+            crop_id: document.getElementById('crop_id').value,
+            soil_type: document.getElementById('soil_type').value,
+            seedling_stage: document.getElementById('seedling_stage').value,
+            temp: parseFloat(document.getElementById('temp').value),
+            humidity: parseFloat(document.getElementById('humidity').value),
+            moi: parseFloat(document.getElementById('moi').value)
+        };
+
+        try {
+            const response = await fetch('/api/agente-recomendaciones', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                mostrarResultados(result);
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error al obtener recomendaciones: ' + error);
+        }
+    });
+
+    function mostrarResultados(result) {
+        document.getElementById('resultados').style.display = 'block';
+
+        // Actualizar score
+        document.getElementById('scoreValue').textContent = result.score;
+        document.getElementById('scoreEstado').textContent = result.estado;
+
+        // Crear gauge chart
+        crearGaugeChart(result.score);
+
+        // Mostrar prioridades
+        const prioridadesDiv = document.getElementById('prioridades');
+        prioridadesDiv.innerHTML = '';
+
+        if (result.recomendaciones.prioridades.length === 0) {
+            prioridadesDiv.innerHTML = '<p class="text-muted">No hay recomendaciones prioritarias en este momento.</p>';
+        } else {
+            result.recomendaciones.prioridades.forEach(rec => {
+                const badge = rec.prioridad === 'alta' ? 'danger' : rec.prioridad === 'media' ? 'warning' : 'success';
+                prioridadesDiv.innerHTML += `
+                <div class="alert alert-${badge} border-start border-5">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="alert-heading mb-1">${rec.titulo}</h6>
+                            <p class="mb-1">${rec.descripcion}</p>
+                            <small><strong>Acción:</strong> ${rec.accion}</small>
+                        </div>
+                        <span class="badge bg-${badge}">Prioridad ${rec.prioridad}</span>
+                    </div>
+                </div>
+            `;
+            });
+        }
+
+        // Mostrar recomendaciones por categoría
+        ['fertilizacion', 'plagas', 'manejo', 'riego'].forEach(categoria => {
+            const div = document.getElementById(categoria);
+            div.innerHTML = '';
+
+            const recs = result.recomendaciones[categoria];
+            if (recs.length === 0) {
+                div.innerHTML = '<p class="text-muted">No hay recomendaciones en esta categoría.</p>';
+            } else {
+                recs.forEach(rec => {
+                    const badge = rec.prioridad === 'alta' ? 'danger' : rec.prioridad === 'media' ? 'warning' : 'info';
+                    div.innerHTML += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h6 class="card-title">${rec.titulo}</h6>
+                                <span class="badge bg-${badge}">${rec.prioridad}</span>
+                            </div>
+                            <p class="card-text">${rec.descripcion}</p>
+                            <p class="card-text"><small class="text-muted"><i class="bi bi-arrow-right-circle"></i> ${rec.accion}</small></p>
+                        </div>
+                    </div>
+                `;
+                });
+            }
+        });
+
+        // Scroll a resultados
+        document.getElementById('resultados').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function crearGaugeChart(score) {
+        const ctx = document.getElementById('scoreGauge').getContext('2d');
+
+        if (scoreChart) {
+            scoreChart.destroy();
+        }
+
+        const color = score >= 85 ? '#28a745' : score >= 70 ? '#17a2b8' : score >= 50 ? '#ffc107' : '#dc3545';
+
+        scoreChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [score, 100 - score],
+                    backgroundColor: [color, '#e9ecef'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                circumference: 180,
+                rotation: 270,
+                cutout: '75%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

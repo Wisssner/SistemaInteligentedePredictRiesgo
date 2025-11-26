@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center py-5">
+        <h1 class="display-3 fw-bold mb-4"><i class="bi bi-droplet-fill text-primary"></i> Sistema de Predicción de Riego</h1>
+        <p class="lead mb-5">Predicciones precisas basadas en Machine Learning con Firebase</p>
+        
+        <div class="row g-4 mt-5">
+            <div class="col-md-6 col-lg-4">
+                <a href="/prediccion-individual" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-input-cursor display-3 text-primary mb-3"></i>
+                        <h5 class="card-title">Predicción Individual</h5>
+                        <p class="card-text text-muted">Datos automáticos de Firebase + lógica difusa MOI</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <a href="/prediccion-masiva" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-file-earmark-spreadsheet display-3 text-success mb-3"></i>
+                        <h5 class="card-title">Predicción Masiva</h5>
+                        <p class="card-text text-muted">Sube Excel y predice múltiples cultivos</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <a href="/dashboard" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-graph-up display-3 text-info mb-3"></i>
+                        <h5 class="card-title">Dashboard</h5>
+                        <p class="card-text text-muted">Visualiza histórico completo de sensores</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <a href="/analisis-vivo" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-broadcast display-3 text-danger mb-3"></i>
+                        <h5 class="card-title">Análisis en Vivo</h5>
+                        <p class="card-text text-muted">Monitoreo y predicción tiempo real</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <a href="/agente-recomendaciones" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-lightbulb-fill display-3 text-warning mb-3"></i>
+                        <h5 class="card-title">🤖 Agente de Recomendaciones</h5>
+                        <p class="card-text text-muted">Consejos inteligentes sobre cultivos y manejo</p>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <a href="/agente-optimizacion" class="card card-hover text-decoration-none">
+                    <div class="card-body text-center p-4">
+                        <i class="bi bi-calendar-check-fill display-3 text-purple mb-3"></i>
+                        <h5 class="card-title">🤖 Agente de Optimización</h5>
+                        <p class="card-text text-muted">Calendario de riego optimizado y alertas</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3 class="text-primary">100%</h3>
+                    <p>Accuracy del Modelo</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3 class="text-success">Decision Tree</h3>
+                    <p>Algoritmo</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <h3 class="text-info">Lógica Difusa</h3>
+                    <p>MOI Automático</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5 fw-bold">
+                <i class="bi bi-calendar-check-fill text-purple"></i> Agente de Optimización de Riego
+            </h1>
+            <p class="lead text-muted">Calendario inteligente y alertas predictivas para riego eficiente</p>
+        </div>
+    </div>
+
+    <!-- Formulario de entrada -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-sliders"></i> Configuración del Análisis</h5>
+        </div>
+        <div class="card-body">
+            <form id="formOptimizacion">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Tipo de Cultivo</label>
+                        <select class="form-select" id="crop_id" required>
+                            <option value="Wheat">Trigo (Wheat)</option>
+                            <option value="Rice">Arroz (Rice)</option>
+                            <option value="Maize">Maíz (Maize)</option>
+                            <option value="Sugarcane">Caña de Azúcar (Sugarcane)</option>
+                            <option value="Cotton">Algodón (Cotton)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Etapa de Crecimiento</label>
+                        <select class="form-select" id="seedling_stage" required>
+                            <option value="Germination">Germinación</option>
+                            <option value="Vegetative">Vegetativo</option>
+                            <option value="Flowering">Floración</option>
+                            <option value="Ripening">Maduración</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Temperatura (°C)</label>
+                        <input type="number" class="form-control" id="temp" value="{{ temperatura }}" step="0.1"
+                            required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Humedad (%)</label>
+                        <input type="number" class="form-control" id="humidity" value="{{ humedad }}" step="0.1"
+                            required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">MOI</label>
+                        <input type="number" class="form-control" id="moi" value="{{ moi }}" step="0.1" required>
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-2">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Días a Proyectar</label>
+                        <select class="form-select" id="dias">
+                            <option value="7" selected>7 días (1 semana)</option>
+                            <option value="14">14 días (2 semanas)</option>
+                            <option value="21">21 días (3 semanas)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-info btn-lg text-white">
+                        <i class="bi bi-calendar-plus"></i> Generar Calendario de Riego
+                    </button>
+                    <small class="text-muted ms-3">
+                        <i class="bi bi-clock"></i> Última actualización: {{ timestamp }}
+                    </small>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="resultados" style="display: none;">
+        <!-- Alertas -->
+        <div id="alertasContainer" class="mb-4"></div>
+
+        <!-- Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body">
+                        <i class="bi bi-droplet-fill display-4 text-primary"></i>
+                        <h3 class="mt-2 mb-0" id="totalAgua">--</h3>
+                        <p class="text-muted mb-0">Litros/m² Total</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body">
+                        <i class="bi bi-calendar-week display-4 text-success"></i>
+                        <h3 class="mt-2 mb-0" id="diasRiego">--</h3>
+                        <p class="text-muted mb-0">Días con Riego</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body">
+                        <i class="bi bi-graph-up display-4 text-info"></i>
+                        <h3 class="mt-2 mb-0" id="promedio">--</h3>
+                        <p class="text-muted mb-0">L/m² Promedio</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body">
+                        <i class="bi bi-award display-4 text-warning"></i>
+                        <h3 class="mt-2 mb-0" id="eficiencia">--</h3>
+                        <p class="text-muted mb-0">Eficiencia</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendario de Riego -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-calendar3"></i> Calendario de Riego Optimizado</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="calendarioTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Día</th>
+                                <th>Horario</th>
+                                <th>Volumen (L/m²)</th>
+                                <th>MOI Estimado</th>
+                                <th>Temp. Estimada</th>
+                                <th>Prioridad</th>
+                                <th>Notas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calendarioBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Métricas de Eficiencia -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Análisis de Eficiencia</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <canvas id="eficienciaChart"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Métricas Detalladas</h6>
+                        <ul class="list-group" id="metricasList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let eficienciaChart = null;
+
+    document.getElementById('formOptimizacion').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const data = {
+            crop_id: document.getElementById('crop_id').value,
+            seedling_stage: document.getElementById('seedling_stage').value,
+            temp: parseFloat(document.getElementById('temp').value),
+            humidity: parseFloat(document.getElementById('humidity').value),
+            moi: parseFloat(document.getElementById('moi').value),
+            dias: parseInt(document.getElementById('dias').value)
+        };
+
+        try {
+            const response = await fetch('/api/agente-optimizacion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                mostrarResultados(result);
+            } else {
+                alert('Error: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error al generar calendario: ' + error);
+        }
+    });
+
+    function mostrarResultados(result) {
+        document.getElementById('resultados').style.display = 'block';
+
+        // Mostrar alertas
+        const alertasContainer = document.getElementById('alertasContainer');
+        alertasContainer.innerHTML = '';
+
+        if (result.alertas && result.alertas.length > 0) {
+            result.alertas.forEach(alerta => {
+                alertasContainer.innerHTML += `
+                <div class="alert alert-${alerta.color} border-start border-5">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-${alerta.icono} fs-3 me-3"></i>
+                        <div>
+                            <h6 class="alert-heading mb-1">${alerta.tipo}: ${alerta.titulo}</h6>
+                            <p class="mb-0">${alerta.mensaje}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            });
+        }
+
+        // Actualizar estadísticas
+        document.getElementById('totalAgua').textContent = result.estadisticas.total_agua_semana;
+        document.getElementById('diasRiego').textContent = result.estadisticas.dias_riego;
+        document.getElementById('promedio').textContent = result.estadisticas.promedio_por_riego;
+        document.getElementById('eficiencia').textContent = result.estadisticas.eficiencia;
+
+        // Mostrar calendario
+        const tbody = document.getElementById('calendarioBody');
+        tbody.innerHTML = '';
+
+        result.calendario.forEach(dia => {
+            const prioridadBadge = dia.prioridad === 'alta' ? 'danger' : dia.prioridad === 'media' ? 'warning' : 'success';
+            const rowClass = dia.volumen > 0 ? 'table-primary' : '';
+
+            tbody.innerHTML += `
+            <tr class="${rowClass}">
+                <td><strong>${dia.fecha}</strong></td>
+                <td>${dia.dia_semana}</td>
+                <td><span class="badge bg-info">${dia.horario}</span></td>
+                <td><strong>${dia.volumen}</strong></td>
+                <td>${dia.moi_estimado}</td>
+                <td>${dia.temp_estimada}°C</td>
+                <td><span class="badge bg-${prioridadBadge}">${dia.prioridad}</span></td>
+                <td><small>${dia.notas}</small></td>
+            </tr>
+        `;
+        });
+
+        // Mostrar métricas
+        if (result.metricas) {
+            const metricasList = document.getElementById('metricasList');
+            metricasList.innerHTML = `
+            <li class="list-group-item d-flex justify-content-between">
+                <span>Consumo Total:</span>
+                <strong>${result.metricas.consumo_total} L/m²</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+                <span>Consumo Promedio/Día:</span>
+                <strong>${result.metricas.consumo_promedio_dia} L/m²</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+                <span>Días con Riego:</span>
+                <strong>${result.metricas.dias_con_riego}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+                <span>Días sin Riego:</span>
+                <strong>${result.metricas.dias_sin_riego}</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+                <span>Eficiencia:</span>
+                <strong>${result.metricas.eficiencia_porcentaje}%</strong>
+            </li>
+            <li class="list-group-item">
+                <span class="badge bg-success w-100">${result.metricas.clasificacion}</span>
+            </li>
+        `;
+
+            // Crear gráfico de eficiencia
+            crearGraficoEficiencia(result.metricas);
+        }
+
+        // Scroll a resultados
+        document.getElementById('resultados').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function crearGraficoEficiencia(metricas) {
+        const ctx = document.getElementById('eficienciaChart').getContext('2d');
+
+        if (eficienciaChart) {
+            eficienciaChart.destroy();
+        }
+
+        eficienciaChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Días con Riego', 'Días sin Riego'],
+                datasets: [{
+                    data: [metricas.dias_con_riego, metricas.dias_sin_riego],
+                    backgroundColor: ['#0dcaf0', '#198754'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribución de Días de Riego'
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+<style>
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+</style>
+{% endblock %}
