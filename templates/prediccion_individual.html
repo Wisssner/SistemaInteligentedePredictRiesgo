@@ -262,55 +262,52 @@
 // ============================================
 
 function calcularMoiFuzzy(temperatura, humedad) {
-    let moi = 50; // Valor base
-    
-    // REGLA 1: CRÍTICO - Muy Seco (evapotranspiración extrema)
-    if (temperatura > 38 && humedad < 30) {
-        let stress = ((temperatura - 38) / 8) * 0.5 + ((30 - humedad) / 30) * 0.5;
-        moi = 5 + stress * 10;
-        return Math.max(5, Math.min(15, moi));
+    let moi_base = 50;
+
+    // REGLA 1: Muy Seco
+    if (temperatura > 35 && humedad < 40) {
+        return Math.max(10, moi_base - 30);
     }
-    
-    // REGLA 2: SECO - Moderado (alta evaporación)
+
+    // REGLA 2: Seco
     if (temperatura > 30 && humedad < 50) {
-        let deficit = ((temperatura - 30) / 16) * 0.6 + ((50 - humedad) / 50) * 0.4;
-        moi = 15 + deficit * 20;
-        return Math.max(15, Math.min(35, moi));
+        return Math.max(20, moi_base - 20);
     }
-    
-    // REGLA 3: SATURADO - Muy Alto (baja evaporación, alta retención)
-    if (temperatura < 20 && humedad > 75) {
-        let saturation = ((20 - temperatura) / 7) * 0.4 + ((humedad - 75) / 25) * 0.6;
-        moi = 70 + saturation * 25;
-        return Math.max(70, Math.min(95, moi));
+
+    // REGLA 3: Mojado
+    if (temperatura < 20 && humedad > 70) {
+        return Math.min(90, moi_base + 30);
     }
-    
-    // REGLA 4: ÓPTIMO - Zona ideal (balance perfecto)
-    if (temperatura >= 25 && temperatura <= 30 && humedad >= 50 && humedad <= 70) {
-        let temp_opt = 1 - Math.abs(temperatura - 27.5) / 2.5;
-        let hum_opt = 1 - Math.abs(humedad - 60) / 10;
-        moi = 50 + (temp_opt * hum_opt) * 15;
-        return Math.max(45, Math.min(65, moi));
+
+    // REGLA 4: Casi Mojado
+    if (temperatura < 25 && humedad > 60) {
+        return Math.min(80, moi_base + 20);
     }
-    
-    // REGLA GENERAL: Cálculo basado en balance hídrico
-    let temp_norm = (temperatura - 13) / (46 - 13);
-    let hum_norm = humedad / 100;
-    let evap_factor = Math.pow(temp_norm, 1.5);
-    let retention_factor = Math.pow(hum_norm, 0.8);
-    
-    moi = 50 + (retention_factor * 40) - (evap_factor * 30);
-    return Math.max(10, Math.min(90, moi));
+
+    // Ajuste general
+    let temp_factor = (temperatura - 13) / (46 - 13);
+    let hum_factor = humedad / 100;
+    let adjustment = (temp_factor - 0.5) * 20 - (hum_factor - 0.5) * 30;
+
+    return Math.max(10, Math.min(90, moi_base + adjustment));
 }
 
 function getMoiCategory(moi) {
-    if (moi < 15) return "Muy Seco";
-    else if (moi < 35) return "Seco";
-    else if (moi < 45) return "Bajo";
-    else if (moi < 65) return "Óptimo";
-    else if (moi < 80) return "Alto";
-    else return "Saturado";
+    if (moi < 20) return "Seco";
+    else if (moi < 40) return "Casi Seco";
+    else if (moi < 60) return "Intermedio";
+    else if (moi < 80) return "Casi Mojado";
+    else return "Mojado";
 }
+
+function getMoiColor(moi) {
+    if (moi < 20) return '#fd7e14'; // Seco
+    else if (moi < 40) return '#ffc107'; // Casi Seco
+    else if (moi < 60) return '#28a745'; // Intermedio
+    else if (moi < 80) return '#17a2b8'; // Casi Mojado
+    else return '#007bff'; // Mojado
+}
+
 
 function getMoiColor(moi) {
     if (moi < 15) return '#dc3545';

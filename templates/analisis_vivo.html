@@ -56,14 +56,26 @@
             </div>
             
             <div class="card shadow-sm">
-                <div class="card-header bg-warning text-dark">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Parámetros de Predicción</h5>
+                    <span id="paramsStatus" class="badge bg-success">
+                        <i class="bi bi-check-circle-fill"></i> Activo
+                    </span>
                 </div>
                 <div class="card-body">
+                    <!-- Alert de confirmación de cambios -->
+                    <div id="changeAlert" class="alert alert-info alert-dismissible fade" role="alert" style="display: none;">
+                        <i class="bi bi-info-circle-fill"></i>
+                        <strong>Parámetros actualizados</strong>
+                        <p class="mb-0 small">Las predicciones ahora usan la nueva configuración</p>
+                    </div>
+                    
                     <form id="liveForm">
                         <div class="mb-3">
-                            <label class="form-label small">Tipo de Cultivo</label>
-                            <select class="form-select form-select-sm" name="crop_id" id="liveCrop">
+                            <label class="form-label small fw-bold">
+                                <i class="bi bi-flower1"></i> Tipo de Cultivo
+                            </label>
+                            <select class="form-select form-select-sm" name="crop_id" id="liveCrop" onchange="onParamsChange()">
                                 <option value="Wheat" selected>Wheat</option>
                                 <option value="Chilli">Chilli</option>
                                 <option value="Potato">Potato</option>
@@ -73,8 +85,10 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label small">Tipo de Suelo</label>
-                            <select class="form-select form-select-sm" name="soil_type" id="liveSoil">
+                            <label class="form-label small fw-bold">
+                                <i class="bi bi-layers-fill"></i> Tipo de Suelo
+                            </label>
+                            <select class="form-select form-select-sm" name="soil_type" id="liveSoil" onchange="onParamsChange()">
                                 <option value="Black Soil" selected>Black Soil</option>
                                 <option value="Clay Soil">Clay Soil</option>
                                 <option value="Sandy Soil">Sandy Soil</option>
@@ -86,8 +100,10 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label small">Etapa de Desarrollo</label>
-                            <select class="form-select form-select-sm" name="seedling_stage" id="liveStage">
+                            <label class="form-label small fw-bold">
+                                <i class="bi bi-graph-up-arrow"></i> Etapa de Desarrollo
+                            </label>
+                            <select class="form-select form-select-sm" name="seedling_stage" id="liveStage" onchange="onParamsChange()">
                                 <option value="Germination">Germination</option>
                                 <option value="Seedling Stage">Seedling Stage</option>
                                 <option value="Vegetative Growth / Root or Tuber Development">Vegetative Growth</option>
@@ -98,6 +114,31 @@
                                 <option value="Harvest">Harvest</option>
                             </select>
                         </div>
+
+                        <!-- Indicador de configuración actual -->
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <p class="small text-muted mb-2 fw-bold">
+                                <i class="bi bi-gear-fill"></i> Configuración Actual:
+                            </p>
+                            <div class="small">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Cultivo:</span>
+                                    <span class="fw-bold" id="currentCropDisplay">Wheat</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted">Suelo:</span>
+                                    <span class="fw-bold" id="currentSoilDisplay">Black Soil</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-muted">Etapa:</span>
+                                    <span class="fw-bold" id="currentStageDisplay">Flowering</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary btn-sm w-100 mt-3" id="applyBtn" onclick="applyParameters()" disabled>
+                            <i class="bi bi-arrow-clockwise"></i> Aplicar Cambios
+                        </button>
                     </form>
                 </div>
             </div>
@@ -105,8 +146,11 @@
         
         <div class="col-lg-8">
             <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Predicciones en Tiempo Real</h5>
+                    <span class="badge bg-light text-dark" id="predictionCounter">
+                        0 predicciones
+                    </span>
                 </div>
                 <div class="card-body">
                     <div id="predictionsContainer"></div>
@@ -124,6 +168,75 @@
 let monitoring = false;
 let predictions = [];
 let currentData = {};
+let paramsChanged = false;
+
+// Estado de los parámetros
+let currentParams = {
+    crop: 'Wheat',
+    soil: 'Black Soil',
+    stage: 'Flowering'
+};
+
+function onParamsChange() {
+    const newCrop = document.getElementById('liveCrop').value;
+    const newSoil = document.getElementById('liveSoil').value;
+    const newStage = document.getElementById('liveStage').value;
+    
+    // Verificar si hay cambios
+    if (newCrop !== currentParams.crop || 
+        newSoil !== currentParams.soil || 
+        newStage !== currentParams.stage) {
+        paramsChanged = true;
+        document.getElementById('applyBtn').disabled = false;
+        document.getElementById('applyBtn').classList.add('btn-warning');
+        document.getElementById('applyBtn').classList.remove('btn-primary');
+        document.getElementById('applyBtn').innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Aplicar Cambios Pendientes';
+        
+        // Cambiar badge de estado
+        document.getElementById('paramsStatus').className = 'badge bg-warning text-dark';
+        document.getElementById('paramsStatus').innerHTML = '<i class="bi bi-clock-fill"></i> Pendiente';
+    }
+}
+
+function applyParameters() {
+    // Actualizar parámetros actuales
+    currentParams.crop = document.getElementById('liveCrop').value;
+    currentParams.soil = document.getElementById('liveSoil').value;
+    currentParams.stage = document.getElementById('liveStage').value;
+    
+    // Actualizar displays
+    document.getElementById('currentCropDisplay').textContent = currentParams.crop;
+    document.getElementById('currentSoilDisplay').textContent = currentParams.soil;
+    document.getElementById('currentStageDisplay').textContent = currentParams.stage;
+    
+    // Resetear estado
+    paramsChanged = false;
+    document.getElementById('applyBtn').disabled = true;
+    document.getElementById('applyBtn').classList.remove('btn-warning');
+    document.getElementById('applyBtn').classList.add('btn-primary');
+    document.getElementById('applyBtn').innerHTML = '<i class="bi bi-arrow-clockwise"></i> Aplicar Cambios';
+    
+    // Actualizar badge de estado
+    document.getElementById('paramsStatus').className = 'badge bg-success';
+    document.getElementById('paramsStatus').innerHTML = '<i class="bi bi-check-circle-fill"></i> Activo';
+    
+    // Mostrar alerta de confirmación
+    const alert = document.getElementById('changeAlert');
+    alert.style.display = 'block';
+    alert.classList.add('show');
+    
+    // Ocultar alerta después de 3 segundos
+    setTimeout(() => {
+        alert.classList.remove('show');
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 150);
+    }, 3000);
+    
+    // Limpiar predicciones anteriores para mostrar las nuevas
+    predictions = [];
+    renderPredictions();
+}
 
 async function startMonitoring() {
     await fetch('/api/start-monitoring', {method: 'POST'});
@@ -173,6 +286,9 @@ async function pollData() {
 }
 
 function renderPredictions() {
+    const counter = document.getElementById('predictionCounter');
+    counter.textContent = predictions.length + ' predicción' + (predictions.length !== 1 ? 'es' : '');
+    
     if (predictions.length === 0) {
         document.getElementById('noPredictions').style.display = 'block';
         document.getElementById('predictionsContainer').style.display = 'none';
@@ -183,18 +299,28 @@ function renderPredictions() {
     document.getElementById('predictionsContainer').style.display = 'block';
     
     let html = '';
-    predictions.forEach(p => {
+    predictions.forEach((p, index) => {
         const badgeClass = p.prediction === 'Requiere Riego' ? 'success' : 'danger';
         const icon = p.prediction === 'Requiere Riego' ? 'droplet-fill' : 'x-circle-fill';
+        const isLatest = index === 0;
         
         html += `
-            <div class="alert alert-${badgeClass} alert-dismissible fade show">
-                <i class="bi bi-${icon}"></i>
-                <strong>${p.prediction}</strong> - Confianza: ${(p.confidence*100).toFixed(2)}%
-                <br>
-                <small>Temp: ${p.temperatura}°C | Hum: ${p.humedad}% | MOI: ${p.moi.toFixed(1)} (${p.moi_category})</small>
-                <br>
-                <small class="text-muted">${p.timestamp}</small>
+            <div class="alert alert-${badgeClass} alert-dismissible fade show ${isLatest ? 'border border-3 border-dark' : ''}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <i class="bi bi-${icon}"></i>
+                        <strong>${p.prediction}</strong> ${isLatest ? '<span class="badge bg-dark ms-2">NUEVA</span>' : ''}
+                        <span class="ms-2">Confianza: ${(p.confidence*100).toFixed(2)}%</span>
+                        <br>
+                        <small>Temp: ${p.temperatura}°C | Hum: ${p.humedad}% | MOI: ${p.moi.toFixed(1)} (${p.moi_category})</small>
+                        <br>
+                        <small class="text-muted"><i class="bi bi-clock"></i> ${p.timestamp}</small>
+                        <br>
+                        <small class="badge bg-secondary mt-1">
+                            <i class="bi bi-gear"></i> ${p.crop_id || currentParams.crop} | ${p.soil_type || currentParams.soil} | ${p.seedling_stage || currentParams.stage}
+                        </small>
+                    </div>
+                </div>
             </div>
         `;
     });
