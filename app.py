@@ -8,7 +8,8 @@ import os
 import threading
 import time
 from agentes_inteligentes import AgenteRecomendaciones, AgenteOptimizacion, obtener_recomendaciones_completas
-
+from datetime import datetime
+from zoneinfo import ZoneInfo  # zona horaria oficial
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -88,8 +89,12 @@ def get_latest_values():
 
 def format_timestamp(ts):
     try:
+        # Si es timestamp numérico
         if isinstance(ts, (int, float)):
-            return datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+            # Convertir **a Perú**
+            dt = datetime.fromtimestamp(ts, tz=ZoneInfo("America/Lima"))
+            return dt.strftime('%Y-%m-%d %H:%M:%S')
+        
         return ts
     except:
         return 'N/A'
