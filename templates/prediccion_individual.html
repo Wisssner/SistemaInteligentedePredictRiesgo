@@ -170,85 +170,102 @@
                 </div>
             </div>
             
-            <!-- Reglas Difusas Simplificadas -->
             <div class="card shadow-sm mt-4">
-                <div class="card-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                    <h6 class="mb-0 text-white">
-                        <i class="bi bi-lightbulb"></i> Reglas de Inferencia Difusa
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="accordion" id="rulesAccordion">
-                        <!-- Regla 1 -->
-                        <div class="accordion-item border-0 mb-2">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-danger bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule1">
-                                    <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
-                                    <strong>CRÍTICO:</strong> Muy Seco (MOI: 5-15)
-                                </button>
-                            </h2>
-                            <div id="rule1" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
-                                <div class="accordion-body">
-                                    <strong>Condición:</strong> Temp > 38°C Y Humedad < 30%<br>
-                                    <strong>Efecto:</strong> Evapotranspiración extrema. Riesgo alto de estrés hídrico.<br>
-                                    <span class="badge bg-danger">Requiere riego inmediato</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Regla 2 -->
-                        <div class="accordion-item border-0 mb-2">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-warning bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule2">
-                                    <i class="bi bi-droplet-half text-warning me-2"></i>
-                                    <strong>SECO:</strong> Bajo-Moderado (MOI: 15-35)
-                                </button>
-                            </h2>
-                            <div id="rule2" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
-                                <div class="accordion-body">
-                                    <strong>Condición:</strong> Temp > 30°C Y Humedad < 50%<br>
-                                    <strong>Efecto:</strong> Evaporación acelerada. Suelo perdiendo humedad.<br>
-                                    <span class="badge bg-warning">Monitoreo frecuente</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Regla 3 -->
-                        <div class="accordion-item border-0 mb-2">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-success bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule3">
-                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
-                                    <strong>ÓPTIMO:</strong> Ideal (MOI: 45-65)
-                                </button>
-                            </h2>
-                            <div id="rule3" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
-                                <div class="accordion-body">
-                                    <strong>Condición:</strong> Temp 25-30°C Y Humedad 50-70%<br>
-                                    <strong>Efecto:</strong> Balance perfecto entre retención y evaporación.<br>
-                                    <span class="badge bg-success">Condiciones ideales</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Regla 4 -->
-                        <div class="accordion-item border-0">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed bg-primary bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule4">
-                                    <i class="bi bi-cloud-rain-fill text-primary me-2"></i>
-                                    <strong>SATURADO:</strong> Alto-Muy Alto (MOI: 70-95)
-                                </button>
-                            </h2>
-                            <div id="rule4" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
-                                <div class="accordion-body">
-                                    <strong>Condición:</strong> Temp < 20°C Y Humedad > 75%<br>
-                                    <strong>Efecto:</strong> Baja evaporación. Alta retención hídrica.<br>
-                                    <span class="badge bg-primary">No requiere riego</span>
-                                </div>
-                            </div>
-                        </div>
+    <div class="card-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h6 class="mb-0 text-white">
+            <i class="bi bi-lightbulb"></i> Reglas de Inferencia Difusa
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="accordion" id="rulesAccordion">
+            <!-- Regla: Seco -->
+            <div class="accordion-item border-0 mb-2">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-danger bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule1">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                        <strong>SECO:</strong> MOI < 20
+                    </button>
+                </h2>
+                <div id="rule1" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                    <div class="accordion-body">
+                        <strong>Condición:</strong> MOI < 20<br>
+                        <strong>Efecto:</strong> Suelo extremadamente seco, alta necesidad de riego.<br>
+                        <span class="badge bg-danger">Requiere riego inmediato</span>
                     </div>
                 </div>
             </div>
+
+            <!-- Regla: Casi Seco -->
+            <div class="accordion-item border-0 mb-2">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-warning bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule2">
+                        <i class="bi bi-droplet-half text-warning me-2"></i>
+                        <strong>CASI SECO:</strong> 20 ≤ MOI < 40
+                    </button>
+                </h2>
+                <div id="rule2" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                    <div class="accordion-body">
+                        <strong>Condición:</strong> 20 ≤ MOI < 40<br>
+                        <strong>Efecto:</strong> Suelo seco, monitoreo frecuente de humedad.<br>
+                        <span class="badge bg-warning">Monitoreo frecuente</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regla: Intermedio -->
+            <div class="accordion-item border-0 mb-2">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-success bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule3">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <strong>INTERMEDIO:</strong> 40 ≤ MOI < 60
+                    </button>
+                </h2>
+                <div id="rule3" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                    <div class="accordion-body">
+                        <strong>Condición:</strong> 40 ≤ MOI < 60<br>
+                        <strong>Efecto:</strong> Condiciones óptimas de humedad, balance entre evaporación y retención.<br>
+                        <span class="badge bg-success">Condiciones ideales</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regla: Casi Mojado -->
+            <div class="accordion-item border-0 mb-2">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-primary bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule4">
+                        <i class="bi bi-cloud-rain-fill text-primary me-2"></i>
+                        <strong>CASI MOJADO:</strong> 60 ≤ MOI < 80
+                    </button>
+                </h2>
+                <div id="rule4" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                    <div class="accordion-body">
+                        <strong>Condición:</strong> 60 ≤ MOI < 80<br>
+                        <strong>Efecto:</strong> Suelo húmedo, requiere monitoreo de evaporación.<br>
+                        <span class="badge bg-primary">Riego no necesario</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regla: Mojado -->
+            <div class="accordion-item border-0">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-info bg-opacity-10" type="button" data-bs-toggle="collapse" data-bs-target="#rule5">
+                        <i class="bi bi-cloud-rain-fill text-info me-2"></i>
+                        <strong>MOJADO:</strong> MOI ≥ 80
+                    </button>
+                </h2>
+                <div id="rule5" class="accordion-collapse collapse" data-bs-parent="#rulesAccordion">
+                    <div class="accordion-body">
+                        <strong>Condición:</strong> MOI ≥ 80<br>
+                        <strong>Efecto:</strong> Suelo muy húmedo, alta retención hídrica.<br>
+                        <span class="badge bg-info">No requiere riego</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
         </div>
     </div>
 </div>
