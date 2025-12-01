@@ -102,38 +102,99 @@
         
         <div class="col-lg-6">
             <div class="card shadow-sm" id="resultCard" style="display:none;">
-                <div class="card-header text-white" id="resultHeader">
+                <div class="card-header" id="resultHeader" style="background-color: #6f42c1; color: white;">
                     <h5 class="mb-0">Resultado de la Predicción</h5>
                 </div>
+
                 <div class="card-body">
-                    <div class="text-center mb-4">
-                        <i class="display-1" id="resultIcon"></i>
-                        <h2 class="mt-3" id="resultText"></h2>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="stat-box">
+
+                    <!-- RESULTADOS DEL MODELO ML -->
+                    <div class="mb-4 p-3 rounded border">
+                        <h5 class="text-primary">
+                            <i class="bi bi-cpu"></i> Modelo de Machine Learning
+                        </h5>
+                        <div class="text-center mb-3">
+                            <h3 id="resultText" class="fw-bold"></h3>
+                        </div>
+                        <div class="row text-center mt-3">
+                            <div class="col-6">
                                 <h4 id="probYes" class="text-success">0%</h4>
                                 <p class="text-muted">Prob. Requiere Riego</p>
                             </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stat-box">
+                            <div class="col-6">
                                 <h4 id="probNo" class="text-danger">0%</h4>
                                 <p class="text-muted">Prob. No Requiere</p>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mt-4">
-                        <div class="progress" style="height: 30px;">
+
+                        <div class="progress mt-3" style="height: 25px;">
                             <div class="progress-bar bg-success" id="yesBar" style="width: 0%"></div>
                             <div class="progress-bar bg-danger" id="noBar" style="width: 0%"></div>
                         </div>
                     </div>
+                    
+                    <!-- RESULTADO DEL SISTEMA EXPERTO DIFUSO -->
+                    <div class="mb-4 p-3 rounded border">
+                        <h5 class="text-warning">
+                            <i class="bi bi-lightbulb"></i> Sistema Experto
+                        </h5>
+
+                        <div class="text-center mb-3">
+                            <h3 id="seDecision" class="fw-bold"></h3>
+                        </div>
+
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4 id="sePorcRiego" class="text-success">0%</h4>
+                                <p class="text-muted">Prob. Requiere Riego</p>
+                            </div>
+
+                            <div class="col-6">
+                                <h4 id="sePorcNoRiego" class="text-danger">0%</h4>
+                                <p class="text-muted">Prob. No Requiere</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-success" id="seBarYes" style="width: 0%"></div>
+                                <div class="progress-bar bg-danger" id="seBarNo" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESULTADO DE LA IA-->
+                    <div class="mb-4 p-3 rounded border">
+                        <h5 class="text-info">
+                            <i class="bi bi-robot"></i> Modelo LLM
+                        </h5>
+
+                        <div class="text-center mb-3">
+                            <h3 id="gmDecision" class="fw-bold"></h3>
+                        </div>
+
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4 id="gmPorcRiego" class="text-success">0%</h4>
+                                <p class="text-muted">Prob. Requiere Riego</p>
+                            </div>
+
+                            <div class="col-6">
+                                <h4 id="gmPorcNoRiego" class="text-danger">0%</h4>
+                                <p class="text-muted">Prob. No Requiere</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-success" id="gmBarYes" style="width: 0%"></div>
+                                <div class="progress-bar bg-danger" id="gmBarNo" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
             
             <!-- Gráfico Interactivo 3D -->
             <div class="card shadow-sm mt-4">
@@ -169,7 +230,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="card shadow-sm mt-4">
     <div class="card-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
         <h6 class="mb-0 text-white">
@@ -509,24 +570,33 @@ document.getElementById('predictionForm').addEventListener('submit', async (e) =
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
     });
-    
+
     const result = await response.json();
-    
+
+    // 🔍 DEBUG: Ver qué llega desde el servidor
+    console.log('Respuesta completa:', result);
+    console.log('Gemini data:', result.gemini);
+
     document.getElementById('resultCard').style.display = 'block';
-    document.getElementById('resultText').textContent = result.prediction_text;
-    document.getElementById('probYes').textContent = (result.probability_yes * 100).toFixed(2) + '%';
-    document.getElementById('probNo').textContent = (result.probability_no * 100).toFixed(2) + '%';
-    document.getElementById('yesBar').style.width = (result.probability_yes * 100) + '%';
-    document.getElementById('noBar').style.width = (result.probability_no * 100) + '%';
-    
-    if (result.prediction == 1) {
-        document.getElementById('resultHeader').className = 'card-header bg-success text-white';
-        document.getElementById('resultIcon').className = 'bi bi-droplet-fill text-success display-1';
-    } else {
-        document.getElementById('resultHeader').className = 'card-header bg-danger text-white';
-        document.getElementById('resultIcon').className = 'bi bi-x-circle-fill text-danger display-1';
-    }
-    
+    document.getElementById('resultText').textContent = result.ml.prediction_text;
+    document.getElementById('probYes').textContent = (result.ml.probability_yes * 100).toFixed(2) + '%';
+    document.getElementById('probNo').textContent = (result.ml.probability_no * 100).toFixed(2) + '%';
+    document.getElementById('yesBar').style.width = (result.ml.probability_yes * 100) + '%';
+    document.getElementById('noBar').style.width = (result.ml.probability_no * 100) + '%';
+
+    //sistema experto resultados
+    document.getElementById("seDecision").textContent = result.se.Regar;
+    document.getElementById("sePorcRiego").textContent = result.se.Porcentaje_Riego.toFixed(1) + "%";
+    document.getElementById("sePorcNoRiego").textContent = result.se.Porcentaje_No_Riego.toFixed(1) + "%";
+    document.getElementById("seBarYes").style.width = result.se.Porcentaje_Riego + "%";
+    document.getElementById("seBarNo").style.width = result.se.Porcentaje_No_Riego + "%";
+
+    //resultado por llm
+    document.getElementById("gmDecision").textContent = result.gemini.Regar;
+    document.getElementById("gmPorcRiego").textContent = result.gemini.Porcentaje_Riego + "%";
+    document.getElementById("gmPorcNoRiego").textContent = result.gemini.Porcentaje_No_Riego + "%";
+    document.getElementById("gmBarYes").style.width = result.gemini.Porcentaje_Riego + "%";
+    document.getElementById("gmBarNo").style.width = result.gemini.Porcentaje_No_Riego + "%";
     // Scroll to result
     document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });

@@ -20,7 +20,7 @@ except ImportError:
     print("⚠️ google-generativeai no instalado. Ejecuta: pip install google-generativeai")
 
 # Configuración de Gemini
-GEMINI_API_KEY = os.getenv('GOOGLE_AI_API_KEY', 'AIzaSyCtrVdrXugPVS314f4REXQJbj-VkfStiiA')
+GEMINI_API_KEY = os.getenv('GOOGLE_AI_API_KEY', 'AIzaSyCx_CjFrC-41JM5GYva6Nk5Giw0eel5iYc')
 GEMINI_MODEL = os.getenv('GOOGLE_AI_MODEL', 'gemini-2.0-flash')
 GEMINI_ENABLED = os.getenv('GOOGLE_AI_ENABLED', 'true').lower() == 'true'
 
@@ -394,7 +394,47 @@ Formato de respuesta (JSON):
             }
         
         return recomendaciones
+    
+    def evaluate_with_gemini(self, temp, humidity, moi, crop, soil, stage):
+        try:
+            prompt = f"""
+Eres un experto agrónomo. Analiza estas condiciones de cultivo:
 
+**Cultivo:** {crop}
+**Tipo de Suelo:** {soil}
+**Etapa de Crecimiento:** {stage}
+**Condiciones Actuales:**
+- Temperatura: {temp}°C
+- Humedad Ambiental: {humidity}%
+- Humedad del Suelo (MOI): {moi}%
+
+Basándote en estos datos, determina si el cultivo necesita riego.
+
+Formato de respuesta (JSON):
+{{
+    "Regar": "Requiere Riego o No Requiere Riego",
+    "Porcentaje_Riego": número entre 0-100,
+    "Porcentaje_No_Riego": número entre 0-100
+}}
+"""
+        
+            response = gemini_model.generate_content(prompt)
+            response_text = response.text.strip()
+        
+            # Extraer JSON si viene en un bloque de código
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+
+            return json.loads(response_text)
+
+        except Exception as e:
+            print(f"⚠️ Error al usar Gemini: {e}")
+            return {
+                "error": "Error al llamar a Gemini",
+                "detalle": str(e),
+            }
 
 class AgenteOptimizacion:
     """
@@ -762,3 +802,4 @@ def obtener_recomendaciones_completas(crop_id: str, soil_type: str,
         'alertas': alertas,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
+

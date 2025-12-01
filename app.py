@@ -8,6 +8,8 @@ import os
 import threading
 import time
 from agentes_inteligentes import AgenteRecomendaciones, AgenteOptimizacion, obtener_recomendaciones_completas
+from expert_system import evaluate_expert_system
+from guardar_predicciones import guardar_prediccion_firestore
 from datetime import datetime
 from zoneinfo import ZoneInfo  # zona horaria oficial
 app = Flask(__name__)
@@ -150,7 +152,8 @@ def prediccion_individual():
 def api_predict():
     data = request.json
     
-    result = predict_single(
+    print(data)
+    result_ml = predict_single(
         data['crop_id'],
         data['soil_type'],
         data['seedling_stage'],
@@ -158,8 +161,48 @@ def api_predict():
         float(data['temp']),
         float(data['humidity'])
     )
-    
-    return jsonify(result)
+
+    result_se = evaluate_expert_system(
+        float(data['temp']),     
+        float(data['humidity']),   
+        data['crop_id'],          
+        data['soil_type'],         
+        data['seedling_stage'],    
+        float(data['moi'])
+    )
+
+    result_gemini = agente_recomendaciones.evaluate_with_gemini(
+        float(data['temp']),
+        float(data['humidity']),
+        float(data['moi']),
+        data['crop_id'],
+        data['soil_type'],
+        data['seedling_stage']
+    )
+
+    # Inputs y outputs para guardar
+    inputs = {
+        "crop_id": data['crop_id'],
+        "soil_type": data['soil_type'],
+        "seedling_stage": data['seedling_stage'],
+        "moi": float(data['moi']),
+        "temp": float(data['temp']),
+        "humidity": float(data['humidity'])
+    }
+    outputs = {
+        "ml": result_ml,
+        "se": result_se,
+        "gemini": result_gemini
+    }
+
+    # Guardar en Firestore
+    guardar_prediccion_firestore(inputs, outputs)
+
+    return jsonify({
+        "ml": result_ml,
+        "se": result_se,
+        "gemini":result_gemini
+    })
 
 @app.route('/prediccion-masiva')
 def prediccion_masiva():
