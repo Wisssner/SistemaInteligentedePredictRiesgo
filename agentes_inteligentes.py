@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional
 import json
 import os
-from dotenv import load_dotenv
-load_dotenv()
+
 # Gemini AI Integration
 try:
     import google.generativeai as genai
