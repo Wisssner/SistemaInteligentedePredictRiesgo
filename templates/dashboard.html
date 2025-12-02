@@ -2,78 +2,260 @@
 
 {% block content %}
 <div class="container-fluid py-5">
-    <h2 class="mb-4"><i class="bi bi-graph-up"></i> Dashboard - Datos Históricos Firebase</h2>
+    <h2 class="mb-4"><i class="bi bi-graph-up"></i> Dashboard - Datos Históricos</h2>
     
+    <!-- Tabs de navegación -->
     <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card stat-card-dashboard bg-primary text-white">
-                <div class="card-body">
-                    <h3 id="avgTemp">--°C</h3>
-                    <p>Temperatura Promedio</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stat-card-dashboard bg-info text-white">
-                <div class="card-body">
-                    <h3 id="avgHum">--%</h3>
-                    <p>Humedad Promedio</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stat-card-dashboard bg-success text-white">
-                <div class="card-body">
-                    <h3 id="totalRecords">--</h3>
-                    <p>Total de Registros</p>
-                </div>
-            </div>
+        <div class="col-12">
+            <ul class="nav nav-tabs nav-fill" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="iot-tab" data-bs-toggle="tab" data-bs-target="#iot-content" type="button" role="tab" aria-controls="iot-content" aria-selected="true">
+                        <i class="bi bi-cloud-download"></i> Datos IoT
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="predictions-tab" data-bs-toggle="tab" data-bs-target="#predictions-content" type="button" role="tab" aria-controls="predictions-content" aria-selected="false">
+                        <i class="bi bi-lightning-charge"></i> Predicciones
+                    </button>
+                </li>
+            </ul>
         </div>
     </div>
-    
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Temperatura en el Tiempo</h5>
+
+    <!-- Contenido de tabs -->
+    <div class="tab-content">
+        <!-- TAB 1: Datos IoT -->
+        <div class="tab-pane fade show active" id="iot-content" role="tabpanel" aria-labelledby="iot-tab">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-primary text-white">
+                        <div class="card-body">
+                            <h3 id="avgTemp">--°C</h3>
+                            <p>Temperatura Promedio</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="tempChart"></canvas>
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-info text-white">
+                        <div class="card-body">
+                            <h3 id="avgHum">--%</h3>
+                            <p>Humedad Promedio</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-success text-white">
+                        <div class="card-body">
+                            <h3 id="totalRecords">--</h3>
+                            <p>Total de Registros</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Temperatura en el Tiempo</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="tempChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Humedad en el Tiempo</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="humChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Datos Recientes (últimos 50 registros)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-striped table-sm">
+                                    <thead class="sticky-top bg-white">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Timestamp</th>
+                                            <th>Temperatura (°C)</th>
+                                            <th>Humedad (%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dataTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Humedad en el Tiempo</h5>
+
+        <!-- TAB 2: Predicciones -->
+        <div class="tab-pane fade" id="predictions-content" role="tabpanel" aria-labelledby="predictions-tab">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-warning text-dark">
+                        <div class="card-body">
+                            <h3 id="totalPredictions">--</h3>
+                            <p>Total de Predicciones</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="humChart"></canvas>
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-success text-white">
+                        <div class="card-body">
+                            <h3 id="successPredictions">--%</h3>
+                            <p>Predicciones Exitosas</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card-dashboard bg-danger text-white">
+                        <div class="card-body">
+                            <h3 id="failurePredictions">--%</h3>
+                            <p>Predicciones Fallidas</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Datos Recientes (últimos 50 registros)</h5>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">Distribución de Predicciones</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="predictionPieChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                        <table class="table table-striped table-sm">
-                            <thead class="sticky-top bg-white">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Timestamp</th>
-                                    <th>Temperatura (°C)</th>
-                                    <th>Humedad (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dataTable"></tbody>
-                        </table>
+
+                <div class="col-lg-6 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Predicciones en el Tiempo</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="predictionTimeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Historial de Predicciones - Comparativo de Modelos</h5>
+                                <button class="btn btn-sm btn-primary" onclick="refreshPredictions()">
+                                    <i class="bi bi-arrow-clockwise"></i> Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Sub-tabs para los 3 modelos -->
+                            <ul class="nav nav-tabs mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="ml-tab" data-bs-toggle="tab" data-bs-target="#ml-content" type="button" role="tab">
+                                        <i class="bi bi-robot"></i> Machine Learning
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="gemini-tab" data-bs-toggle="tab" data-bs-target="#gemini-content" type="button" role="tab">
+                                        <i class="bi bi-stars"></i> Gemini IA
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="se-tab" data-bs-toggle="tab" data-bs-target="#se-content" type="button" role="tab">
+                                        <i class="bi bi-gear"></i> Sistema Experto
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- Contenido de sub-tabs -->
+                            <div class="tab-content">
+                                <!-- Tab ML -->
+                                <div class="tab-pane fade show active" id="ml-content" role="tabpanel">
+                                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                                        <table class="table table-striped table-hover table-sm">
+                                            <thead class="sticky-top bg-light">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Timestamp</th>
+                                                    <th>Cultivo</th>
+                                                    <th>Temp/Humedad</th>
+                                                    <th>Predicción</th>
+                                                    <th>Confianza</th>
+                                                    <th>Prob. Sí</th>
+                                                    <th>Prob. No</th>
+                                                    <th>Detalles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="mlTable"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Tab Gemini -->
+                                <div class="tab-pane fade" id="gemini-content" role="tabpanel">
+                                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                                        <table class="table table-striped table-hover table-sm">
+                                            <thead class="sticky-top bg-light">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Timestamp</th>
+                                                    <th>Cultivo</th>
+                                                    <th>Temp/Humedad</th>
+                                                    <th>Recomendación</th>
+                                                    <th>% Riego</th>
+                                                    <th>% No Riego</th>
+                                                    <th>Detalles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="geminiTable"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Tab Sistema Experto -->
+                                <div class="tab-pane fade" id="se-content" role="tabpanel">
+                                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                                        <table class="table table-striped table-hover table-sm">
+                                            <thead class="sticky-top bg-light">
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Timestamp</th>
+                                                    <th>Cultivo</th>
+                                                    <th>Temp/Humedad</th>
+                                                    <th>Recomendación</th>
+                                                    <th>Prioridad</th>
+                                                    <th>Score Total</th>
+                                                    <th>% Riego</th>
+                                                    <th>Detalles</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="seTable"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -81,82 +263,465 @@
     </div>
 </div>
 
-<script>
-let tempChart, humChart;
+<!-- Modal para detalles de predicción ML -->
+<div class="modal fade" id="mlDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-robot"></i> Detalles - Machine Learning</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="mlModalContent"></div>
+        </div>
+    </div>
+</div>
 
+<!-- Modal para detalles de predicción Gemini -->
+<div class="modal fade" id="geminiDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-stars"></i> Detalles - Gemini IA</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="geminiModalContent"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalles de predicción SE -->
+<div class="modal fade" id="seDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-gear"></i> Detalles - Sistema Experto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="seModalContent"></div>
+        </div>
+    </div>
+</div><script>
+let tempChart, humChart, predictionPieChart, predictionTimeChart;
+
+// ===== FUNCIONES PARA DATOS IoT =====
 async function loadData() {
-    const response = await fetch('/api/firebase-data');
-    const data = await response.json();
-    
-    if (data.length === 0) return;
-    
-    const temps = data.map(d => d.temperatura);
-    const hums = data.map(d => d.humedad);
-    const labels = data.map((d, i) => i + 1);
-    
-    document.getElementById('avgTemp').textContent = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1) + '°C';
-    document.getElementById('avgHum').textContent = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1) + '%';
-    document.getElementById('totalRecords').textContent = data.length;
-    
-    if (tempChart) tempChart.destroy();
-    if (humChart) humChart.destroy();
-    
-    const displayData = data.slice(-100);
-    const displayTemps = displayData.map(d => d.temperatura);
-    const displayHums = displayData.map(d => d.humedad);
-    const displayLabels = displayData.map((d, i) => i + 1);
-    
-    tempChart = new Chart(document.getElementById('tempChart'), {
-        type: 'line',
-        data: {
-            labels: displayLabels,
-            datasets: [{
-                label: 'Temperatura (°C)',
-                data: displayTemps,
-                borderColor: 'rgb(255, 99, 132)',
-                backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {legend: {display: true}}
-        }
-    });
-    
-    humChart = new Chart(document.getElementById('humChart'), {
-        type: 'line',
-        data: {
-            labels: displayLabels,
-            datasets: [{
-                label: 'Humedad (%)',
-                data: displayHums,
-                borderColor: 'rgb(54, 162, 235)',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {legend: {display: true}}
-        }
-    });
-    
-    let tableHTML = '';
-    displayData.slice(-50).reverse().forEach((d, idx) => {
-        tableHTML += `
-            <tr>
-                <td>${idx + 1}</td>
-                <td>${d.timestamp}</td>
-                <td><span class="badge bg-danger">${d.temperatura}°C</span></td>
-                <td><span class="badge bg-info">${d.humedad}%</span></td>
-            </tr>
-        `;
-    });
-    document.getElementById('dataTable').innerHTML = tableHTML;
+    try {
+        const response = await fetch('/api/firebase-data');
+        const data = await response.json();
+        
+        if (data.length === 0) return;
+        
+        const temps = data.map(d => d.temperatura);
+        const hums = data.map(d => d.humedad);
+        
+        document.getElementById('avgTemp').textContent = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1) + '°C';
+        document.getElementById('avgHum').textContent = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1) + '%';
+        document.getElementById('totalRecords').textContent = data.length;
+        
+        if (tempChart) tempChart.destroy();
+        if (humChart) humChart.destroy();
+        
+        const displayData = data.slice(-100);
+        const displayTemps = displayData.map(d => d.temperatura);
+        const displayHums = displayData.map(d => d.humedad);
+        const displayLabels = displayData.map((d, i) => i + 1);
+        
+        tempChart = new Chart(document.getElementById('tempChart'), {
+            type: 'line',
+            data: {
+                labels: displayLabels,
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: displayTemps,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {legend: {display: true}}
+            }
+        });
+        
+        humChart = new Chart(document.getElementById('humChart'), {
+            type: 'line',
+            data: {
+                labels: displayLabels,
+                datasets: [{
+                    label: 'Humedad (%)',
+                    data: displayHums,
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {legend: {display: true}}
+            }
+        });
+        
+        let tableHTML = '';
+        displayData.slice(-50).reverse().forEach((d, idx) => {
+            tableHTML += `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${d.timestamp}</td>
+                    <td><span class="badge bg-danger">${d.temperatura}°C</span></td>
+                    <td><span class="badge bg-info">${d.humedad}%</span></td>
+                </tr>
+            `;
+        });
+        document.getElementById('dataTable').innerHTML = tableHTML;
+    } catch (error) {
+        console.error('Error cargando datos IoT:', error);
+    }
 }
 
+// ===== FUNCIONES PARA PREDICCIONES =====
+async function loadPredictions() {
+    try {
+        const response = await fetch('/api/predicciones-historial');
+        const predictions = await response.json();
+        
+        if (!predictions || predictions.length === 0) {
+            document.getElementById('totalPredictions').textContent = '0';
+            document.getElementById('successPredictions').textContent = '0%';
+            document.getElementById('failurePredictions').textContent = '0%';
+            document.getElementById('mlTable').innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin datos</td></tr>';
+            document.getElementById('geminiTable').innerHTML = '<tr><td colspan="8" class="text-center text-muted">Sin datos</td></tr>';
+            document.getElementById('seTable').innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin datos</td></tr>';
+            return;
+        }
+
+        // Filtrar predicciones con datos ML válidos
+        const mlPredictions = predictions.filter(p => p.outputs?.ml?.prediction !== undefined);
+        const successCount = mlPredictions.filter(p => p.outputs.ml.prediction === 1).length;
+        const failureCount = mlPredictions.filter(p => p.outputs.ml.prediction === 0).length;
+        const successPercent = mlPredictions.length > 0 ? ((successCount / mlPredictions.length) * 100).toFixed(1) : 0;
+        const failurePercent = mlPredictions.length > 0 ? ((failureCount / mlPredictions.length) * 100).toFixed(1) : 0;
+
+        document.getElementById('totalPredictions').textContent = predictions.length;
+        document.getElementById('successPredictions').textContent = successPercent + '%';
+        document.getElementById('failurePredictions').textContent = failurePercent + '%';
+
+        // Gráfico Pie
+        if (predictionPieChart) predictionPieChart.destroy();
+        predictionPieChart = new Chart(document.getElementById('predictionPieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Requiere Riego', 'No Requiere Riego'],
+                datasets: [{
+                    data: [successCount, failureCount],
+                    backgroundColor: ['#17a2b8', '#6c757d'],
+                    borderColor: ['#138496', '#5a6268'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: {position: 'bottom'} }
+            }
+        });
+
+        // Gráfico temporal ML - Gráfico de barras horizontal más claro
+        if (predictionTimeChart) predictionTimeChart.destroy();
+        const last20 = mlPredictions.slice(-20).reverse();
+        
+        const predictionLabels = last20.map((p, i) => `Pred ${i + 1}`);
+        const barData = last20.map(p => p.outputs.ml.prediction === 1 ? 100 : 0);
+        const barColors = last20.map(p => p.outputs.ml.prediction === 1 ? '#17a2b8' : '#6c757d');
+
+        predictionTimeChart = new Chart(document.getElementById('predictionTimeChart'), {
+            type: 'bar',
+            data: {
+                labels: predictionLabels,
+                datasets: [{
+                    label: 'Estado de Predicción',
+                    data: barData,
+                    backgroundColor: barColors,
+                    borderColor: barColors,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    hoverBackgroundColor: barColors.map(c => c === '#17a2b8' ? '#138496' : '#5a6268'),
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.raw === 100 ? '✓ Requiere Riego' : '✗ No Requiere Riego';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        min: 0,
+                        max: 100,
+                        ticks: {
+                            display: false
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: {
+                                size: 11
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== TABLA ML =====
+        let mlHTML = '';
+        predictions.forEach((p, idx) => {
+            if (p.outputs?.ml) {
+                const ml = p.outputs.ml;
+                const inputs = p.inputs || {};
+                const predictionBadge = ml.prediction === 1 ? 
+                    '<span class="badge bg-info">Requiere Riego</span>' : 
+                    '<span class="badge bg-secondary">No Requiere</span>';
+                
+                mlHTML += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><small>${p.timestamp || 'N/A'}</small></td>
+                        <td><strong>${inputs.crop_id || 'N/A'}</strong></td>
+                        <td><small>${inputs.temp || 'N/A'}°C / ${inputs.humidity || 'N/A'}%</small></td>
+                        <td>${predictionBadge}</td>
+                        <td><strong>${(ml.confidence * 100).toFixed(1)}%</strong></td>
+                        <td>${(ml.probability_yes * 100).toFixed(1)}%</td>
+                        <td>${(ml.probability_no * 100).toFixed(1)}%</td>
+                        <td><button class="btn btn-sm btn-info" onclick="showMLDetails('${p.id}')"><i class="bi bi-eye"></i></button></td>
+                    </tr>
+                `;
+            }
+        });
+        document.getElementById('mlTable').innerHTML = mlHTML || '<tr><td colspan="9" class="text-center text-muted">Sin datos ML</td></tr>';
+
+        // ===== TABLA GEMINI =====
+        let geminiHTML = '';
+        predictions.forEach((p, idx) => {
+            if (p.outputs?.gemini) {
+                const gemini = p.outputs.gemini;
+                const inputs = p.inputs || {};
+                const recoBadge = gemini.Regar && gemini.Regar.includes('Requiere') ? 
+                    '<span class="badge bg-info">Requiere Riego</span>' : 
+                    '<span class="badge bg-secondary">No Requiere</span>';
+                
+                geminiHTML += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><small>${p.timestamp || 'N/A'}</small></td>
+                        <td><strong>${inputs.crop_id || 'N/A'}</strong></td>
+                        <td><small>${inputs.temp || 'N/A'}°C / ${inputs.humidity || 'N/A'}%</small></td>
+                        <td>${recoBadge}</td>
+                        <td><strong>${gemini.Porcentaje_Riego || 0}%</strong></td>
+                        <td>${gemini.Porcentaje_No_Riego || 0}%</td>
+                        <td><button class="btn btn-sm btn-warning" onclick="showGeminiDetails('${p.id}')"><i class="bi bi-eye"></i></button></td>
+                    </tr>
+                `;
+            }
+        });
+        document.getElementById('geminiTable').innerHTML = geminiHTML || '<tr><td colspan="8" class="text-center text-muted">Sin datos Gemini</td></tr>';
+
+        // ===== TABLA SISTEMA EXPERTO =====
+        let seHTML = '';
+        predictions.forEach((p, idx) => {
+            if (p.outputs?.se) {
+                const se = p.outputs.se;
+                const inputs = p.inputs || {};
+                const recoBadge = se.Regar && se.Regar.includes('Requiere') ? 
+                    '<span class="badge bg-info">Requiere Riego</span>' : 
+                    '<span class="badge bg-secondary">No Requiere</span>';
+                
+                const priorityColors = {
+                    'CRITICO': 'danger',
+                    'MUY': 'warning',
+                    'MODERADO': 'info',
+                    'BAJO': 'success'
+                };
+                const priorityColor = priorityColors[se.Nivel_Prioridad] || 'secondary';
+                
+                seHTML += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><small>${p.timestamp || 'N/A'}</small></td>
+                        <td><strong>${inputs.crop_id || 'N/A'}</strong></td>
+                        <td><small>${inputs.temp || 'N/A'}°C / ${inputs.humidity || 'N/A'}%</small></td>
+                        <td>${recoBadge}</td>
+                        <td><span class="badge bg-${priorityColor}">${se.Nivel_Prioridad || 'N/A'}</span></td>
+                        <td><strong>${se.Score_Total || 0}</strong></td>
+                        <td>${se.Porcentaje_Riego || 0}%</td>
+                        <td><button class="btn btn-sm btn-success" onclick="showSEDetails('${p.id}')"><i class="bi bi-eye"></i></button></td>
+                    </tr>
+                `;
+            }
+        });
+        document.getElementById('seTable').innerHTML = seHTML || '<tr><td colspan="9" class="text-center text-muted">Sin datos Sistema Experto</td></tr>';
+
+    } catch (error) {
+        console.error('Error cargando predicciones:', error);
+    }
+}
+
+function showMLDetails(id) {
+    fetch('/api/predicciones-historial')
+        .then(res => res.json())
+        .then(predictions => {
+            const p = predictions.find(x => x.id === id);
+            if (p?.outputs?.ml) {
+                const ml = p.outputs.ml;
+                const inputs = p.inputs || {};
+                const html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary"><i class="bi bi-cloud-upload"></i> Parámetros de Entrada</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Cultivo:</strong> ${inputs.crop_id || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Suelo:</strong> ${inputs.soil_type || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Etapa:</strong> ${inputs.seedling_stage || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Temp:</strong> <span class="badge bg-danger">${inputs.temp || 'N/A'}°C</span></li>
+                                <li class="list-group-item"><strong>Humedad:</strong> <span class="badge bg-info">${inputs.humidity || 'N/A'}%</span></li>
+                                <li class="list-group-item"><strong>MOI:</strong> <span class="badge bg-warning text-dark">${inputs.moi || 'N/A'}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success"><i class="bi bi-robot"></i> Resultado ML</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Predicción:</strong> ${ml.prediction_text || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Confianza:</strong> <span class="badge bg-success">${(ml.confidence * 100).toFixed(2)}%</span></li>
+                                <li class="list-group-item"><strong>Prob. Requiere:</strong> ${(ml.probability_yes * 100).toFixed(2)}%</li>
+                                <li class="list-group-item"><strong>Prob. No Requiere:</strong> ${(ml.probability_no * 100).toFixed(2)}%</li>
+                                <li class="list-group-item"><strong>Timestamp:</strong> <small>${p.timestamp || 'N/A'}</small></li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('mlModalContent').innerHTML = html;
+                new bootstrap.Modal(document.getElementById('mlDetailModal')).show();
+            }
+        })
+        .catch(e => console.error('Error:', e));
+}
+
+function showGeminiDetails(id) {
+    fetch('/api/predicciones-historial')
+        .then(res => res.json())
+        .then(predictions => {
+            const p = predictions.find(x => x.id === id);
+            if (p?.outputs?.gemini) {
+                const gemini = p.outputs.gemini;
+                const inputs = p.inputs || {};
+                const html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary"><i class="bi bi-cloud-upload"></i> Parámetros de Entrada</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Cultivo:</strong> ${inputs.crop_id || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Suelo:</strong> ${inputs.soil_type || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Etapa:</strong> ${inputs.seedling_stage || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Temp:</strong> <span class="badge bg-danger">${inputs.temp || 'N/A'}°C</span></li>
+                                <li class="list-group-item"><strong>Humedad:</strong> <span class="badge bg-info">${inputs.humidity || 'N/A'}%</span></li>
+                                <li class="list-group-item"><strong>MOI:</strong> <span class="badge bg-warning text-dark">${inputs.moi || 'N/A'}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning"><i class="bi bi-stars"></i> Resultado Gemini</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Recomendación:</strong> ${gemini.Regar || 'N/A'}</li>
+                                <li class="list-group-item"><strong>% Riego:</strong> <span class="badge bg-info">${gemini.Porcentaje_Riego || 0}%</span></li>
+                                <li class="list-group-item"><strong>% No Riego:</strong> <span class="badge bg-secondary">${gemini.Porcentaje_No_Riego || 0}%</span></li>
+                                <li class="list-group-item"><strong>Timestamp:</strong> <small>${p.timestamp || 'N/A'}</small></li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('geminiModalContent').innerHTML = html;
+                new bootstrap.Modal(document.getElementById('geminiDetailModal')).show();
+            }
+        })
+        .catch(e => console.error('Error:', e));
+}
+
+function showSEDetails(id) {
+    fetch('/api/predicciones-historial')
+        .then(res => res.json())
+        .then(predictions => {
+            const p = predictions.find(x => x.id === id);
+            if (p?.outputs?.se) {
+                const se = p.outputs.se;
+                const inputs = p.inputs || {};
+                const priorityColors = {
+                    'CRITICO': 'danger',
+                    'MUY': 'warning',
+                    'MODERADO': 'info',
+                    'BAJO': 'success'
+                };
+                const priorityColor = priorityColors[se.Nivel_Prioridad] || 'secondary';
+                
+                const html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary"><i class="bi bi-cloud-upload"></i> Parámetros de Entrada</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Cultivo:</strong> ${inputs.crop_id || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Suelo:</strong> ${inputs.soil_type || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Etapa:</strong> ${inputs.seedling_stage || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Temp:</strong> <span class="badge bg-danger">${inputs.temp || 'N/A'}°C</span></li>
+                                <li class="list-group-item"><strong>Humedad:</strong> <span class="badge bg-info">${inputs.humidity || 'N/A'}%</span></li>
+                                <li class="list-group-item"><strong>MOI:</strong> <span class="badge bg-warning text-dark">${inputs.moi || 'N/A'}</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success"><i class="bi bi-gear"></i> Resultado Sistema Experto</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item"><strong>Recomendación:</strong> ${se.Regar || 'N/A'}</li>
+                                <li class="list-group-item"><strong>Prioridad:</strong> <span class="badge bg-${priorityColor}">${se.Nivel_Prioridad || 'N/A'}</span></li>
+                                <li class="list-group-item"><strong>Score Total:</strong> <strong>${se.Score_Total || 0}</strong></li>
+                                <li class="list-group-item"><strong>% Riego:</strong> <span class="badge bg-info">${se.Porcentaje_Riego || 0}%</span></li>
+                                <li class="list-group-item"><strong>% No Riego:</strong> <span class="badge bg-secondary">${se.Porcentaje_No_Riego || 0}%</span></li>
+                                <li class="list-group-item"><strong>Timestamp:</strong> <small>${p.timestamp || 'N/A'}</small></li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('seModalContent').innerHTML = html;
+                new bootstrap.Modal(document.getElementById('seDetailModal')).show();
+            }
+        })
+        .catch(e => console.error('Error:', e));
+}
+
+function refreshPredictions() {
+    loadPredictions();
+}
+
+// ===== Inicialización =====
 loadData();
+loadPredictions();
+
+// Actualizar cada 5 segundos
 setInterval(loadData, 5000);
+setInterval(loadPredictions, 10000);
 </script>
 {% endblock %}

@@ -18,8 +18,10 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs('uploads', exist_ok=True)
 
 FIREBASE_URL = 'https://si-grupo2-default-rtdb.firebaseio.com/iot_lecturas_clima.json'
+PREDICCIONES_URL = 'https://si-grupo2-default-rtdb.firebaseio.com/predicciones.json'
 
-with open('modelos_guardados/best_model_Gradient_Boosting_20251126_085140.pkl', 'rb') as f:
+
+with open('modelos_guardados1/best_model_Gradient_Boosting_20251201_222123.pkl', 'rb') as f:
     model_package = pickle.load(f)
     
 model = model_package['model']
@@ -91,15 +93,24 @@ def get_latest_values():
 
 def format_timestamp(ts):
     try:
-        # Si es timestamp numérico
+        # 1) Detectar si es ISO 8601 (string con "T")
+        if isinstance(ts, str) and "T" in ts:
+            # Convertir de ISO 8601 (sin timezone)
+            dt = datetime.fromisoformat(ts)
+
+            # Asumir que viene en UTC → y convertir a Perú
+            dt = dt.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("America/Lima"))
+
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 2) Si es numérico (UNIX timestamp)
         if isinstance(ts, (int, float)):
-            # Convertir **a Perú**
             dt = datetime.fromtimestamp(ts, tz=ZoneInfo("America/Lima"))
-            return dt.strftime('%Y-%m-%d %H:%M:%S')
+            return dt.strftime("%Y-%m-%d %H:MM:%S")
         
         return ts
     except:
-        return 'N/A'
+        return "N/A"
 
 def prepare_features(crop_id, soil_type, seedling_stage, moi, temp, humidity):
     crop_encoded = encoders['crop'].transform([crop_id])[0]
@@ -264,6 +275,50 @@ def api_firebase_data():
             })
         return jsonify(entries)
     return jsonify([])
+
+@app.route('/api/predicciones-historial')
+def api_predicciones_historial():
+    try:
+        response = requests.get(PREDICCIONES_URL, timeout=5)
+
+        if response.status_code != 200:
+            return jsonify([])
+
+        data = response.json()
+
+        if not data:
+            return jsonify([])
+
+        predicciones = []
+
+        # recorrer cada predicción almacenada
+        for key, value in data.items():
+            # Convertir timestamp ISO a formato legible
+            ts = value.get("timestamp", "")
+            formatted_ts = format_timestamp(ts)
+            
+            predicciones.append({
+                "id": key,
+                "timestamp": formatted_ts,
+                "inputs": value.get("inputs", {}),
+                "outputs": {
+                    "ml": value.get("outputs", {}).get("ml", {}),
+                    "gemini": value.get("outputs", {}).get("gemini", {}),
+                    "se": value.get("outputs", {}).get("se", {})
+                }
+            })
+
+        # Ordenar por timestamp descendente (más recientes primero)
+        predicciones.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        # Limitar a últimas 50 predicciones
+        predicciones = predicciones[:50]
+
+        return jsonify(predicciones)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/analisis-vivo')
 def analisis_vivo():
