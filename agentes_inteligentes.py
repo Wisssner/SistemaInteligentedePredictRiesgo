@@ -21,7 +21,7 @@ except ImportError:
     print("⚠️ google-generativeai no instalado. Ejecuta: pip install google-generativeai")
 
 # Configuración de Gemini
-GEMINI_API_KEY = os.getenv("GOOGLE_AI_API_KEY")
+GEMINI_API_KEY = os.getenv('GOOGLE_AI_API_KEY', 'AIzaSyAi5MJIR_5746NNuqp6-wGDe0H8ZlJS0Pw')
 GEMINI_MODEL = os.getenv('GOOGLE_AI_MODEL', 'gemini-2.5-flash')
 GEMINI_ENABLED = os.getenv('GOOGLE_AI_ENABLED', 'true').lower() == 'true'
 
