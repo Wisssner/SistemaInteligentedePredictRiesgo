@@ -1,453 +1,427 @@
-# ============================================================
-# expert_system_optimized.py - VERSIÓN OPTIMIZADA PARA ML
-# Sistema calibrado con pesos ajustados y reglas refinadas
-# ============================================================
+# -*- coding: utf-8 -*-
+"""
+================================================================================
+expert_system.py  —  Motor de Inferencia Difusa Mamdani
+Sistema Inteligente de Riego — Vaccinium corymbosum (Arandano Alto)
+Costa de Lima, Peru
+
+Implementacion COMPLETA del ciclo Mamdani:
+  1. Fuzzificacion     : funciones trapezoidales y triangulares puras en NumPy
+  2. Evaluacion        : 22 reglas SI-ENTONCES con operadores min (AND) / max (OR)
+  3. Implicacion       : metodo min (Mamdani clasico)
+  4. Agregacion        : union de consecuentes por max
+  5. Defuzzificacion   : metodo del centroide (Center of Gravity)
+
+Calibrado especificamente para los umbrales del arandano:
+  MOI optimo  : 60-80% capacidad de campo
+  Temp optima : 18-24°C  (costa limeña)
+  Potencial   : -20 a -30 kPa
+
+Interfaz compatible con la funcion evaluate_expert_system() existente en app.py.
+================================================================================
+"""
 
 import numpy as np
 
-# ------------------------------------------------------------
-# FUNCIONES AUXILIARES
-# ------------------------------------------------------------
-def triangular(x, a, b, c):
-    x = np.array(x, dtype=float)
-    left_denom = b - a if (b - a) != 0 else 1e-6
-    right_denom = c - b if (c - b) != 0 else 1e-6
-    left = (x - a) / left_denom
-    right = (c - x) / right_denom
-    res = np.maximum(0, np.minimum(left, right))
-    return res
+# ==============================================================================
+# 1.  FUNCIONES DE PERTENENCIA
+# ==============================================================================
 
-def trapezoidal(x, a, b, c, d):
-    x = np.array(x, dtype=float)
-    denom_left = b - a if (b - a) != 0 else 1e-6
-    denom_right = d - c if (d - c) != 0 else 1e-6
-    left = (x - a) / denom_left
-    right = (d - x) / denom_right
-    res = np.minimum(np.minimum(left, 1.0), right)
-    res = np.maximum(res, 0.0)
-    return res
+def _trap(x: float, a: float, b: float, c: float, d: float) -> float:
+    """
+    Funcion de pertenencia trapezoidal.
+    Sube de a a b, plana de b a c, baja de c a d.
+    """
+    x = float(x)
+    if x <= a or x >= d:
+        return 0.0
+    if b <= x <= c:
+        return 1.0
+    if a < x < b:
+        return (x - a) / (b - a)
+    return (d - x) / (d - c)          # c < x < d
 
-# ------------------------------------------------------------
-# MAPEOS MEJORADOS CON MÁS VARIANTES
-# ------------------------------------------------------------
-cultivo_map = {
-    "wheat": "baja", 
-    "carrot": "alta", "potato": "alta", "chilli": "alta", 
-    "chili": "alta", "tomato": "alta", "pepper": "alta",
-    "corn": "media", "maize": "media", "rice": "alta",
-    "cotton": "media", "sugarcane": "alta"
+
+def _tri(x: float, a: float, b: float, c: float) -> float:
+    """Funcion de pertenencia triangular (caso especial de trapecio con b==c)."""
+    return _trap(x, a, b, b, c)
+
+
+def _trap_vec(xs: np.ndarray, a, b, c, d) -> np.ndarray:
+    """Version vectorizada de _trap para el universo de salida."""
+    result = np.zeros_like(xs, dtype=float)
+    for i, x in enumerate(xs):
+        result[i] = _trap(x, a, b, c, d)
+    return result
+
+
+def _tri_vec(xs: np.ndarray, a, b, c) -> np.ndarray:
+    """Version vectorizada de _tri."""
+    return _trap_vec(xs, a, b, b, c)
+
+
+# ==============================================================================
+# 2.  CONJUNTOS DIFUSOS — ENTRADAS
+# ==============================================================================
+
+# ---- MOI  [0, 100] (humedad del suelo) ----
+def _moi_sets(moi: float) -> dict:
+    """
+    Fuzzifica el indice de humedad del suelo (MOI).
+    Umbrales calibrados para Vaccinium corymbosum.
+    """
+    return {
+        'muy_seco' : _trap(moi,  0,  0, 15, 30),   # suelo critico, riesgo desecacion
+        'seco'     : _tri (moi, 20, 37, 52),        # por debajo del optimo arandano
+        'optimo'   : _trap(moi, 52, 60, 78, 86),    # rango ideal 60-80% CC
+        'humedo'   : _tri (moi, 78, 88, 96),        # sobre el limite superior
+        'saturado' : _trap(moi, 90, 96,100,100),    # asfixia radicular
+    }
+
+
+# ---- Temperatura  [0, 50] °C ----
+def _temp_sets(temp: float) -> dict:
+    """
+    Fuzzifica la temperatura ambiental.
+    Rango optimo del arandano en costa limeña: 18-24°C.
+    """
+    return {
+        'fria'   : _trap(temp,  0,  0, 12, 18),
+        'fresca' : _tri (temp, 14, 20, 26),
+        'optima' : _trap(temp, 18, 20, 24, 28),     # rango optimo arandano
+        'calida' : _tri (temp, 25, 32, 40),
+        'extrema': _trap(temp, 36, 42, 50, 50),
+    }
+
+
+# ---- Humedad ambiental  [0, 100] % ----
+def _hum_sets(hum: float) -> dict:
+    """
+    Fuzzifica la humedad relativa del aire.
+    Influye en la tasa de evapotranspiracion (ETc).
+    """
+    return {
+        'muy_seca' : _trap(hum,  0,  0, 20, 35),
+        'seca'     : _tri (hum, 25, 40, 55),
+        'moderada' : _tri (hum, 45, 60, 75),
+        'alta'     : _tri (hum, 65, 78, 90),
+        'muy_alta' : _trap(hum, 85, 92,100,100),
+    }
+
+
+# ---- ETc  [0, 2] mm/dia (proxy) ----
+def _etc_sets(etc: float) -> dict:
+    """
+    Fuzzifica la evapotranspiracion del cultivo (ETc).
+    """
+    return {
+        'baja'   : _trap(etc, 0.0, 0.0, 0.20, 0.50),
+        'media'  : _tri (etc, 0.30, 0.65, 1.00),
+        'alta'   : _tri (etc, 0.80, 1.15, 1.50),
+        'extrema': _trap(etc, 1.30, 1.60, 2.00, 2.00),
+    }
+
+
+# ==============================================================================
+# 3.  CONJUNTOS DIFUSOS — SALIDA  [0, 100]
+# ==============================================================================
+
+UNIVERSE = np.linspace(0, 100, 1001)
+
+OUTPUT_SETS = {
+    'no_regar'     : lambda xs: _trap_vec(xs,  0,  0, 10, 25),
+    'riego_minimo' : lambda xs: _tri_vec (xs, 15, 30, 45),
+    'regar'        : lambda xs: _tri_vec (xs, 40, 55, 70),
+    'riego_intenso': lambda xs: _tri_vec (xs, 60, 75, 90),
+    'riego_urgente': lambda xs: _trap_vec(xs, 80, 90,100,100),
 }
 
-suelo_map = {
-    "sandy soil": "baja", "sandy": "baja", "chalky soil": "baja", "chalky": "baja",
-    "red soil": "media", "red": "media", "loam soil": "media", "loam": "media",
-    "alluvial soil": "media", "alluvial": "media", "alluvian soil": "media", "alluvian": "media",
-    "black soil": "alta", "black": "alta", "clay soil": "alta", "clay": "alta"
-}
 
-etapa_map = {
-    "harvest": "baja", "harvesting": "baja",
-    "maturation": "media", "germination": "media", 
-    "seedling stage": "media", "seedling": "media",
-    "vegetative growth": "alta", 
-    "vegetative growth / root or tuber development": "alta",
-    "root development": "alta", "tuber development": "alta",
-    "flowering": "alta", "pollination": "alta", 
-    "fruit formation": "alta", "fruit/grain/bulb formation": "alta",
-    "grain formation": "alta", "bulb formation": "alta"
-}
+# ==============================================================================
+# 4.  BASE DE REGLAS MAMDANI
+# ==============================================================================
 
-def get_categoria(valor, mapping):
-    """Función mejorada de normalización"""
-    if valor is None:
-        return "media"
-    
-    valor_norm = str(valor).lower().strip()
-    
-    # Búsqueda directa
-    if valor_norm in mapping:
-        return mapping[valor_norm]
-    
-    # Búsqueda por coincidencia parcial
-    for key in mapping.keys():
-        if key in valor_norm or valor_norm in key:
-            return mapping[key]
-    
-    # Valor por defecto si no se encuentra
-    return "media"
+def _build_rules(moi_fs: dict, temp_fs: dict, hum_fs: dict,
+                 etc_fs: dict) -> list:
+    """
+    Devuelve lista de (strength, output_label).
+    AND = min   |   OR = max   |   Implicacion = min (Mamdani)
+    22 reglas calibradas para Vaccinium corymbosum en costa limeña.
+    """
+    m = moi_fs
+    t = temp_fs
+    h = hum_fs
+    e = etc_fs
 
-# ------------------------------------------------------------
-# FUNCIÓN DE NORMALIZACIÓN NO LINEAL
-# ------------------------------------------------------------
-def normalize_sigmoid(value, center=50, steepness=0.05):
-    """
-    Normalización sigmoidal para transiciones suaves
-    """
-    return 1 / (1 + np.exp(-steepness * (value - center)))
+    rules = [
+        # ===== EMERGENCIAS — riego urgente =====
+        # R01: Suelo muy seco + calor extremo → urgente
+        (min(m['muy_seco'], t['extrema']),                   'riego_urgente'),
+        # R02: Suelo muy seco + ETc extrema → urgente
+        (min(m['muy_seco'], e['extrema']),                   'riego_urgente'),
+        # R03: Suelo muy seco + aire muy seco + calor → urgente
+        (min(m['muy_seco'], h['muy_seca'], t['calida']),     'riego_urgente'),
 
-def normalize_gaussian(value, mean, std):
-    """
-    Normalización gaussiana para valores óptimos
-    """
-    return np.exp(-0.5 * ((value - mean) / std) ** 2)
+        # ===== RIEGO INTENSO =====
+        # R04: Suelo muy seco (sin otro agravante) → intenso
+        (m['muy_seco'],                                      'riego_intenso'),
+        # R05: Suelo seco + calor extremo → intenso
+        (min(m['seco'], t['extrema']),                       'riego_intenso'),
+        # R06: Suelo seco + aire muy seco + ETc alta → intenso
+        (min(m['seco'], h['muy_seca'], e['alta']),           'riego_intenso'),
+        # R07: Suelo seco + ETc extrema → intenso
+        (min(m['seco'], e['extrema']),                       'riego_intenso'),
 
-# ------------------------------------------------------------
-# SISTEMA EXPERTO OPTIMIZADO
-# ------------------------------------------------------------
-def evaluate_expert_system(temp, hum, cultivo, suelo, etapa, moi):
+        # ===== REGAR =====
+        # R08: Suelo seco + calor → regar
+        (min(m['seco'], t['calida']),                        'regar'),
+        # R09: Suelo seco + aire seco → regar
+        (min(m['seco'], h['seca']),                          'regar'),
+        # R10: Suelo seco + ETc media → regar
+        (min(m['seco'], e['media']),                         'regar'),
+        # R11: Suelo optimo + calor + aire seco → regar (evitar deficit)
+        (min(m['optimo'], t['calida'], h['seca']),           'regar'),
+        # R12: Suelo optimo + ETc alta → regar (mantener rango)
+        (min(m['optimo'], e['alta']),                        'regar'),
+        # R13: Suelo seco + temperatura fresca (arandano sensible) → regar
+        (min(m['seco'], t['fresca']),                        'regar'),
+
+        # ===== RIEGO MINIMO =====
+        # R14: Suelo optimo + temperatura optima → minimo
+        (min(m['optimo'], t['optima']),                      'riego_minimo'),
+        # R15: Suelo optimo + aire moderado → minimo
+        (min(m['optimo'], h['moderada']),                    'riego_minimo'),
+        # R16: Suelo optimo + temperatura fria → minimo (reducir en frio)
+        (min(m['optimo'], t['fria']),                        'riego_minimo'),
+        # R17: Suelo seco + temperatura fria + aire humedo → minimo
+        (min(m['seco'], t['fria'], h['alta']),               'riego_minimo'),
+
+        # ===== NO REGAR =====
+        # R18: Suelo humedo → no regar (sobre limite superior arandano)
+        (m['humedo'],                                        'no_regar'),
+        # R19: Suelo saturado → no regar (asfixia radicular)
+        (m['saturado'],                                      'no_regar'),
+        # R20: Suelo optimo + aire muy humedo + frio → no regar
+        (min(m['optimo'], h['muy_alta'], t['fria']),         'no_regar'),
+        # R21: Suelo humedo + aire muy humedo → no regar
+        (min(m['humedo'], h['muy_alta']),                    'no_regar'),
+        # R22: ETc baja + suelo optimo + aire alto → no regar
+        (min(e['baja'], m['optimo'], h['alta']),             'no_regar'),
+    ]
+
+    # Eliminar reglas con activacion cero
+    return [(s, lbl) for s, lbl in rules if s > 0.0]
+
+
+# ==============================================================================
+# 5.  MOTOR DE INFERENCIA Y DEFUZZIFICACION
+# ==============================================================================
+
+def _aggregate(activated_rules: list) -> np.ndarray:
     """
-    Sistema experto optimizado con calibración mejorada
-    
-    PESOS ACTUALIZADOS:
-    - MOI: 45% (factor principal pero no único)
-    - Temperatura: 22% (muy importante en zonas cálidas)
-    - Humedad ambiental: 15%
-    - Cultivo: 8%
-    - Suelo: 6%
-    - Etapa: 4%
+    Agrega los consecuentes difusos cortados (implicacion min).
+    Metodo: union por max sobre el universo de salida.
     """
-    
-    # =========================================================
-    # VALIDACIÓN Y NORMALIZACIÓN DE ENTRADAS
-    # =========================================================
+    aggregated = np.zeros(len(UNIVERSE))
+
+    for strength, label in activated_rules:
+        if strength <= 0.0:
+            continue
+        # Conjunto difuso del consecuente sobre el universo
+        membership = OUTPUT_SETS[label](UNIVERSE)
+        # Cortar al nivel de activacion (implicacion Mamdani = min)
+        clipped = np.minimum(membership, strength)
+        # Agregar por maximo
+        aggregated = np.maximum(aggregated, clipped)
+
+    return aggregated
+
+
+def _centroid(aggregated: np.ndarray) -> float:
+    """
+    Defuzzificacion por centroide (Center of Gravity).
+    Devuelve valor en [0, 100].
+    """
+    denom = aggregated.sum()
+    if denom < 1e-10:
+        return 0.0
+    return float(np.dot(UNIVERSE, aggregated) / denom)
+
+
+# ==============================================================================
+# 6.  FUNCION PUBLICA PRINCIPAL
+# ==============================================================================
+
+def evaluate_expert_system(temp, hum, cultivo, suelo, etapa, moi,
+                            etc: float = None) -> dict:
+    """
+    Motor de Inferencia Difusa Mamdani para decision de riego.
+
+    Parametros
+    ----------
+    temp    : float — temperatura ambiental (°C)
+    hum     : float — humedad relativa del aire (%)
+    cultivo : str   — tipo de cultivo (informativo, no afecta logica difusa)
+    suelo   : str   — tipo de suelo (informativo)
+    etapa   : str   — etapa fenologica del arandano
+    moi     : float — indice de humedad del suelo (0-100)
+    etc     : float — evapotranspiracion del cultivo mm/dia (opcional)
+
+    Retorna
+    -------
+    dict con claves:
+        Regar, Porcentaje_Riego, Porcentaje_No_Riego,
+        Score_Difuso, Nivel_Prioridad,
+        Activaciones (dict de pertenencias por variable)
+    """
+
+    # ---- Validacion y limpieza ----
     try:
-        temp = float(temp)
-        temp = max(0, min(50, temp))  # Limitar rango
-    except:
+        temp = max(0.0, min(50.0,  float(temp)))
+    except (TypeError, ValueError):
         temp = 25.0
-    
+
     try:
-        hum = float(hum)
-        hum = max(0, min(100, hum))
-    except:
-        hum = 50.0
-    
-    if moi is None:
-        # Cálculo mejorado de MOI si no se proporciona
-        moi = 50.0 + (hum - 50) * 0.5 - (temp - 25) * 1.2
-        moi = max(0, min(100, moi))
+        hum  = max(0.0, min(100.0, float(hum)))
+    except (TypeError, ValueError):
+        hum  = 50.0
+
+    try:
+        moi  = max(0.0, min(100.0, float(moi)))
+    except (TypeError, ValueError):
+        moi  = 50.0
+
+    if etc is None:
+        # Estimacion ETc si no se proporciona
+        eto = 0.408 * max(0.0, temp - 2.0) / 25.0 * (1 + temp / 50.0)
+        KC_DEFAULT = {
+            'germinacion': 0.30, 'germinación': 0.30,
+            'desarrollo_vegetativo': 0.70, 'desarrollo vegetativo': 0.70,
+            'floracion': 1.05, 'floración': 1.05, 'flowering': 1.05,
+            'fructificacion': 0.90, 'fructificación': 0.90,
+        }
+        kc = KC_DEFAULT.get(str(etapa).lower().strip(), 0.70)
+        etc = max(0.0, eto * kc)
     else:
         try:
-            moi = float(moi)
-            moi = max(0, min(100, moi))
-        except:
-            moi = 50.0
+            etc = max(0.0, float(etc))
+        except (TypeError, ValueError):
+            etc = 0.5
 
-    print(f"\n{'='*60}")
-    print(f"🔍 SISTEMA EXPERTO - ANÁLISIS DE RIEGO")
-    print(f"{'='*60}")
-    print(f"📊 ENTRADAS:")
-    print(f"   • Temperatura: {temp:.1f}°C")
-    print(f"   • Humedad ambiental: {hum:.1f}%")
-    print(f"   • MOI (humedad suelo): {moi:.1f}%")
-    print(f"   • Cultivo: '{cultivo}'")
-    print(f"   • Tipo de suelo: '{suelo}'")
-    print(f"   • Etapa fenológica: '{etapa}'")
+    # ---- Fuzzificacion ----
+    moi_fs  = _moi_sets(moi)
+    temp_fs = _temp_sets(temp)
+    hum_fs  = _hum_sets(hum)
+    etc_fs  = _etc_sets(etc)
 
-    # Obtener categorías
-    cat_cultivo = get_categoria(cultivo, cultivo_map)
-    cat_suelo = get_categoria(suelo, suelo_map)
-    cat_etapa = get_categoria(etapa, etapa_map)
-    
-    print(f"\n📋 CATEGORIZACIÓN:")
-    print(f"   • Demanda hídrica cultivo: {cat_cultivo.upper()}")
-    print(f"   • Retención de agua suelo: {cat_suelo.upper()}")
-    print(f"   • Necesidad hídrica etapa: {cat_etapa.upper()}")
+    # ---- Evaluacion de reglas ----
+    activated = _build_rules(moi_fs, temp_fs, hum_fs, etc_fs)
 
-    # =========================================================
-    # CÁLCULO DE SCORES MEJORADO
-    # =========================================================
-    
-    print(f"\n💯 CÁLCULO DE SCORES:")
-    print(f"{'-'*60}")
-    
-    # -------------------------
-    # FACTOR 1: MOI (PESO: 45%)
-    # -------------------------
-    # Usar función no lineal para MOI
-    if moi < 30:
-        # Crítico: necesidad muy alta
-        moi_score = 100 - moi * 0.8
-    elif moi < 50:
-        # Bajo: necesidad alta
-        moi_score = 75 - (moi - 30) * 1.5
-    elif moi < 70:
-        # Medio: necesidad moderada
-        moi_score = 45 - (moi - 50) * 1.0
+    # ---- Agregacion ----
+    aggregated = _aggregate(activated)
+
+    # ---- Defuzzificacion por centroide ----
+    score = _centroid(aggregated)
+
+    # ---- Interpretacion del resultado ----
+    porcentaje_riego    = round(score, 2)
+    porcentaje_no_riego = round(100.0 - score, 2)
+    decision            = "Requiere Riego" if score > 50.0 else "No Requiere Riego"
+
+    if score >= 80:
+        nivel = "URGENTE"
+    elif score >= 65:
+        nivel = "ALTA"
+    elif score >= 50:
+        nivel = "MEDIA"
+    elif score >= 35:
+        nivel = "BAJA"
     else:
-        # Alto: necesidad baja
-        moi_score = 25 - (moi - 70) * 0.8
-    
-    moi_score = max(0, min(100, moi_score))
-    moi_contribution = moi_score * 0.45
-    
-    print(f"1️⃣  MOI (45%): {moi:.1f}% → Score: {moi_score:.1f} → Contribución: {moi_contribution:.1f}")
-    
-    # -------------------------
-    # FACTOR 2: TEMPERATURA (PESO: 22%)
-    # -------------------------
-    # Temperatura óptima: 20-25°C
-    if temp < 15:
-        temp_score = 20 + (15 - temp) * 0.5  # Frío leve aumenta necesidad
-    elif temp < 25:
-        temp_score = 20 + (temp - 15) * 1.0  # Rango óptimo-cálido
-    elif temp < 35:
-        temp_score = 30 + (temp - 25) * 2.5  # Calor moderado
-    else:
-        temp_score = 55 + (temp - 35) * 3.0  # Calor extremo
-    
-    temp_score = max(0, min(100, temp_score))
-    temp_contribution = temp_score * 0.22
-    
-    print(f"2️⃣  Temperatura (22%): {temp:.1f}°C → Score: {temp_score:.1f} → Contribución: {temp_contribution:.1f}")
-    
-    # -------------------------
-    # FACTOR 3: HUMEDAD AMBIENTAL (PESO: 15%)
-    # -------------------------
-    # Humedad baja = mayor evapotranspiración
-    if hum < 30:
-        hum_score = 90 - hum * 0.5
-    elif hum < 60:
-        hum_score = 70 - (hum - 30) * 1.5
-    else:
-        hum_score = 25 - (hum - 60) * 0.3
-    
-    hum_score = max(0, min(100, hum_score))
-    hum_contribution = hum_score * 0.15
-    
-    print(f"3️⃣  Humedad ambiental (15%): {hum:.1f}% → Score: {hum_score:.1f} → Contribución: {hum_contribution:.1f}")
-    
-    # -------------------------
-    # FACTOR 4: DEMANDA DEL CULTIVO (PESO: 8%)
-    # -------------------------
-    cultivo_scores = {
-        "baja": 20,   # Cultivos resistentes (ej: trigo)
-        "media": 50,  # Cultivos moderados
-        "alta": 80    # Cultivos exigentes (ej: tomate, chile)
-    }
-    cultivo_score = cultivo_scores[cat_cultivo]
-    cultivo_contribution = cultivo_score * 0.08
-    
-    print(f"4️⃣  Cultivo (8%): {cat_cultivo.upper()} → Score: {cultivo_score:.1f} → Contribución: {cultivo_contribution:.1f}")
-    
-    # -------------------------
-    # FACTOR 5: TIPO DE SUELO (PESO: 6%)
-    # -------------------------
-    suelo_scores = {
-        "baja": 70,   # Arenoso: retiene poco agua
-        "media": 50,  # Franco: retención media
-        "alta": 30    # Arcilloso: retiene mucho agua
-    }
-    suelo_score = suelo_scores[cat_suelo]
-    suelo_contribution = suelo_score * 0.06
-    
-    print(f"5️⃣  Suelo (6%): {cat_suelo.upper()} → Score: {suelo_score:.1f} → Contribución: {suelo_contribution:.1f}")
-    
-    # -------------------------
-    # FACTOR 6: ETAPA FENOLÓGICA (PESO: 4%)
-    # -------------------------
-    etapa_scores = {
-        "baja": 30,   # Cosecha: menos agua
-        "media": 50,  # Germinación: moderada
-        "alta": 80    # Floración/fructificación: crítica
-    }
-    etapa_score = etapa_scores[cat_etapa]
-    etapa_contribution = etapa_score * 0.04
-    
-    print(f"6️⃣  Etapa (4%): {cat_etapa.upper()} → Score: {etapa_score:.1f} → Contribución: {etapa_contribution:.1f}")
-    
-    # -------------------------
-    # SCORE BASE
-    # -------------------------
-    score_base = (moi_contribution + temp_contribution + hum_contribution + 
-                  cultivo_contribution + suelo_contribution + etapa_contribution)
-    
-    print(f"\n📊 Score base (suma ponderada): {score_base:.2f}/100")
-    
-    # =========================================================
-    # REGLAS DE AJUSTE CONTEXTUAL
-    # =========================================================
-    
-    print(f"\n🔧 AJUSTES POR REGLAS CONTEXTUALES:")
-    print(f"{'-'*60}")
-    
-    ajuste_total = 0
-    reglas_aplicadas = []
-    
-    # REGLA 1: Condición CRÍTICA (MOI < 25 + Temp > 32)
-    if moi < 25 and temp > 32:
-        ajuste = 18
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🚨 R1: Condición crítica (MOI<25 + T>32): +{ajuste:.1f}")
-    
-    # REGLA 2: MOI muy bajo (<20)
-    if moi < 20:
-        ajuste = 20
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   💧 R2: MOI crítico (<20): +{ajuste:.1f}")
-    
-    # REGLA 3: Estrés térmico severo (>38°C)
-    if temp > 38:
-        ajuste = 15
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🔥 R3: Estrés térmico severo (>38°C): +{ajuste:.1f}")
-    
-    # REGLA 4: Aire muy seco + MOI medio-bajo
-    if hum < 25 and moi < 55:
-        ajuste = 12
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   💨 R4: Aire muy seco + MOI bajo: +{ajuste:.1f}")
-    
-    # REGLA 5: Cultivo exigente + Etapa crítica + MOI<60
-    if cat_cultivo == "alta" and cat_etapa == "alta" and moi < 60:
-        ajuste = 10
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🌱 R5: Alta demanda en fase crítica: +{ajuste:.1f}")
-    
-    # REGLA 6: Suelo arenoso + Calor + MOI medio
-    if cat_suelo == "baja" and temp > 28 and 30 < moi < 65:
-        ajuste = 8
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🏜️  R6: Suelo arenoso + calor: +{ajuste:.1f}")
-    
-    # REGLA 7: MOI MUY alto (>85) - casi nunca regar
-    if moi > 85:
-        ajuste = -25
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   💦 R7: MOI muy alto (saturado): {ajuste:.1f}")
-    
-    # REGLA 8: Condiciones ÓPTIMAS (temp 18-26 + hum>65 + MOI>65)
-    if 18 <= temp <= 26 and hum > 65 and moi > 65:
-        ajuste = -18
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   ✅ R8: Condiciones óptimas: {ajuste:.1f}")
-    
-    # REGLA 9: MOI alto + humedad alta
-    if moi > 75 and hum > 75:
-        ajuste = -15
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   💧 R9: Exceso de humedad: {ajuste:.1f}")
-    
-    # REGLA 10: Temperatura baja + MOI alto + suelo arcilloso
-    if temp < 18 and moi > 60 and cat_suelo == "alta":
-        ajuste = -12
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   ❄️  R10: Frío + retención alta: {ajuste:.1f}")
-    
-    # REGLA 11: Cosecha con humedad adecuada
-    if cat_etapa == "baja" and moi > 45:
-        ajuste = -10
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🌾 R11: Cosecha con humedad OK: {ajuste:.1f}")
-    
-    # REGLA 12: Cultivo resistente + condiciones normales
-    if cat_cultivo == "baja" and 40 < moi < 70 and 18 < temp < 30:
-        ajuste = -8
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🌿 R12: Cultivo resistente + normal: {ajuste:.1f}")
-    
-    # REGLA 13: Estrés combinado moderado
-    if 30 < temp < 38 and hum < 40 and 25 < moi < 45:
-        ajuste = 10
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   ⚠️  R13: Estrés moderado combinado: +{ajuste:.1f}")
-    
-    # REGLA 14: Ventana crítica de riego (MOI 35-50 + temp>30)
-    if 35 < moi < 50 and temp > 30:
-        ajuste = 8
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   ⏰ R14: Ventana crítica de riego: +{ajuste:.1f}")
-    
-    # REGLA 15: Suelo franco + condiciones moderadas
-    if cat_suelo == "media" and 45 < moi < 65 and 22 < temp < 32:
-        ajuste = -5
-        ajuste_total += ajuste
-        reglas_aplicadas.append(f"   🏞️  R15: Suelo franco equilibrado: {ajuste:.1f}")
-    
-    # Mostrar reglas aplicadas
-    if reglas_aplicadas:
-        for regla in reglas_aplicadas:
-            print(regla)
-        print(f"\n   📊 Ajuste total por reglas: {ajuste_total:+.2f}")
-    else:
-        print("   ℹ️  No se aplicaron reglas contextuales")
-    
-    # =========================================================
-    # CÁLCULO FINAL
-    # =========================================================
-    
-    score_total = score_base + ajuste_total
-    
-    # Normalizar con función sigmoidal para evitar saturación
-    # Mapear [0, 120] → [0, 100] con curva suave
-    riego = 100 / (1 + np.exp(-0.05 * (score_total - 50)))
-    riego = max(0, min(100, riego))
-    
-    print(f"\n{'='*60}")
-    print(f"📈 RESULTADO FINAL:")
-    print(f"{'='*60}")
-    print(f"   Score total: {score_total:.2f}")
-    print(f"   Necesidad de riego: {riego:.1f}%")
-    
-    porcentaje_riego = round(float(riego), 2)
-    porcentaje_no_riego = round(100.0 - porcentaje_riego, 2)
-    decision = "Requiere Riego" if porcentaje_riego > 50.0 else "No Requiere Riego"
-    
-    # Determinar nivel de prioridad
-    if porcentaje_riego >= 80:
-        nivel = "🔴 URGENTE"
-    elif porcentaje_riego >= 65:
-        nivel = "🟠 ALTA"
-    elif porcentaje_riego >= 50:
-        nivel = "🟡 MEDIA"
-    elif porcentaje_riego >= 35:
-        nivel = "🟢 BAJA"
-    else:
-        nivel = "⚪ MUY BAJA"
+        nivel = "MUY BAJA"
 
     return {
-        "Regar": decision,
-        "Porcentaje_Riego": porcentaje_riego,
+        "Regar"             : decision,
+        "Porcentaje_Riego"  : porcentaje_riego,
         "Porcentaje_No_Riego": porcentaje_no_riego,
-        "Score_Total": round(score_total, 2),
-        "Nivel_Prioridad": nivel.split()[1] if ' ' in nivel else nivel
+        "Score_Difuso"      : round(score, 4),
+        "Nivel_Prioridad"   : nivel,
+        "Motor"             : "Mamdani",
+        "Activaciones": {
+            "moi" : {k: round(v, 4) for k, v in moi_fs.items()  if v > 0},
+            "temp": {k: round(v, 4) for k, v in temp_fs.items() if v > 0},
+            "hum" : {k: round(v, 4) for k, v in hum_fs.items()  if v > 0},
+            "etc" : {k: round(v, 4) for k, v in etc_fs.items()  if v > 0},
+        },
+        "Reglas_activadas"  : len(activated),
+        "ETc_usado"         : round(etc, 4),
     }
 
 
-# ------------------------------------------------------------
-# FUNCIÓN DE VALIDACIÓN BATCH
-# ------------------------------------------------------------
-def validate_batch(test_data, ml_predictions=None):
+# ==============================================================================
+# COMPATIBILIDAD: validate_batch (mantener firma del modulo anterior)
+# ==============================================================================
+
+def validate_batch(test_data: list, ml_predictions: list = None) -> object:
     """
-    Valida el sistema experto contra múltiples casos
-    
-    Args:
-        test_data: Lista de diccionarios con las entradas
-        ml_predictions: Lista opcional con predicciones del modelo ML
-    
-    Returns:
-        DataFrame con resultados comparativos
+    Valida el sistema experto contra multiples casos.
+    Retorna DataFrame con resultados comparativos.
     """
     import pandas as pd
-    
+
     results = []
-    
     for i, data in enumerate(test_data):
         result = evaluate_expert_system(
-            temp=data['temperatura'],
-            hum=data['humedad'],
-            cultivo=data['cultivo'],
-            suelo=data['suelo'],
-            etapa=data['etapa'],
-            moi=data.get('moi')
+            temp    = data.get('temperatura', data.get('temp', 25)),
+            hum     = data.get('humedad',     data.get('humidity', 50)),
+            cultivo = data.get('cultivo',     data.get('crop_id', '')),
+            suelo   = data.get('suelo',       data.get('soil_type', '')),
+            etapa   = data.get('etapa',       data.get('seedling_stage', '')),
+            moi     = data.get('moi',         50),
+            etc     = data.get('etc',         None),
         )
-        
         result['caso'] = i + 1
-        
+
         if ml_predictions and i < len(ml_predictions):
             result['ml_prediction'] = ml_predictions[i]
-            result['diferencia'] = abs(result['Porcentaje_Riego'] - ml_predictions[i])
-        
+            result['diferencia']    = abs(result['Porcentaje_Riego'] - ml_predictions[i])
+
         results.append(result)
-    
+
     return pd.DataFrame(results)
+
+
+# ==============================================================================
+# PRUEBA RAPIDA (ejecutar directamente)
+# ==============================================================================
+
+if __name__ == '__main__':
+    import sys, io
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+    casos = [
+        dict(temp=38, hum=25, moi=15,  etapa='Floracion',
+             cultivo='Blueberry', suelo='Sandy Soil', desc='Emergencia: suelo seco + calor'),
+        dict(temp=22, hum=65, moi=70,  etapa='Floracion',
+             cultivo='Blueberry', suelo='Sandy Soil', desc='Optimo: condiciones ideales'),
+        dict(temp=20, hum=80, moi=90,  etapa='Germinacion',
+             cultivo='Blueberry', suelo='Sandy Soil', desc='Saturado: riesgo asfixia'),
+        dict(temp=30, hum=40, moi=45,  etapa='Fructificacion',
+             cultivo='Blueberry', suelo='Sandy Soil', desc='Seco + calor moderado'),
+        dict(temp=15, hum=90, moi=65,  etapa='Desarrollo_Vegetativo',
+             cultivo='Blueberry', suelo='Sandy Soil', desc='Frio + humedo + optimo'),
+    ]
+
+    print("=" * 70)
+    print("PRUEBA MOTOR MAMDANI — Vaccinium corymbosum")
+    print("=" * 70)
+    for c in casos:
+        r = evaluate_expert_system(
+            temp=c['temp'], hum=c['hum'], moi=c['moi'],
+            etapa=c['etapa'], cultivo=c['cultivo'], suelo=c['suelo']
+        )
+        print(f"\n[{c['desc']}]")
+        print(f"  Inputs : MOI={c['moi']}%  Temp={c['temp']}C  Hum={c['hum']}%")
+        print(f"  Score  : {r['Score_Difuso']:.2f}/100  ->  {r['Regar']}")
+        print(f"  Nivel  : {r['Nivel_Prioridad']}  (ETc={r['ETc_usado']} mm/d, reglas={r['Reglas_activadas']})")
+        print(f"  Activ. : MOI={r['Activaciones']['moi']}  Temp={r['Activaciones']['temp']}")

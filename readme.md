@@ -1,310 +1,341 @@
-# 🚀 Guía de Inicio - Sistema Inteligente de Predicción de Riego
+# Sistema Inteligente de Riego — Vaccinium corymbosum
 
-## 📋 Resumen del Sistema
-
-Tu sistema web ha sido transformado en un **Sistema Inteligente** con dos agentes de IA:
-
-### 🤖 Agente 1: Agente de Recomendaciones Agrícolas
-- **Función**: Proporciona consejos personalizados sobre cultivos
-- **Capacidades**:
-  - Calcula score de salud del cultivo (0-100)
-  - Recomendaciones de fertilización según etapa de crecimiento
-  - Alertas de plagas basadas en condiciones climáticas
-  - Consejos de manejo de cultivo y suelo
-  - Optimización de recursos
-
-### 🤖 Agente 2: Agente de Optimización de Riego
-- **Función**: Genera calendarios de riego optimizados
-- **Capacidades**:
-  - Calendario semanal con horarios óptimos
-  - Cálculo de volumen de agua por sesión
-  - Alertas predictivas de condiciones críticas
-  - Métricas de eficiencia de uso de agua
-  - Proyecciones de 7, 14 o 21 días
+**Universidad Nacional Mayor de San Marcos — FISI**
+Practicas Pre Profesionales · Seccion 1 · Lima, Peru
 
 ---
 
-## 🛠️ Paso a Paso para Iniciar el Proyecto
+## Descripcion general
 
-### Paso 1: Instalar Dependencias
+Sistema de clasificacion binaria con Machine Learning para la gestion optima del riego en el cultivo de **arandano alto** (*Vaccinium corymbosum*) en la region costera de Lima. Determina en tiempo real si el cultivo **requiere riego (1) o no (0)** a partir de variables edafoclimaticas capturadas por sensores IoT.
 
-Abre PowerShell en la carpeta del proyecto y ejecuta:
+| Componente | Descripcion |
+|---|---|
+| Algoritmo principal | Gradient Boosting (F1 = 0.9922, Accuracy = 99.37 %) |
+| Validador ML | Random Forest (F1 = 0.9904, Accuracy = 99.22 %) |
+| Sistema experto | Motor de Inferencia Difusa Mamdani (22 reglas) |
+| Dataset | 15 288 registros, split 70/30 estratificado por etapa fenologica |
+| Features | 16 (incluye ETc Hargreaves-Samani x Kc FAO-56 y umbrales arandano) |
+| Agente IA | Gemini AI (recomendaciones agricolas contextuales) |
+| IoT | Firebase Realtime Database + ESP32 via ESP-NOW |
 
-```powershell
+---
+
+## Estructura del proyecto
+
+```
+SistemaInteligentedePredictRiesgo/
+|
+|-- app.py                          # Servidor Flask + API REST completa
+|-- agentes_inteligentes.py         # Agente de Recomendaciones + Agente de Optimizacion
+|-- expert_system.py                # Motor Mamdani genuino (fuzzificacion + centroide)
+|-- proyecto_ml_completo.py         # Pipeline CRISP-DM: datos, ETc, entrenamiento, guardado
+|-- guardar_predicciones.py         # Persistencia en Firebase Realtime Database
+|-- dashboard_streamlit.py          # Dashboard visual interactivo (Streamlit + Plotly)
+|
+|-- dataSalvadora.xlsx              # Dataset de entrenamiento (15 288 registros)
+|-- dataSalvadorasintarget.xlsx     # Dataset sin variable objetivo (prediccion batch)
+|-- requirements.txt                # Dependencias del proyecto
+|-- diagnostico.md                  # Analisis de cumplimiento del documento academico
+|
+|-- modelos_guardados1/
+|   |-- best_model_Gradient_Boosting_arandano_<timestamp>.pkl   # Modelo principal (GB)
+|   |-- best_model_Gradient_Boosting_arandano_<timestamp>.joblib
+|   |-- best_model_Random_Forest_arandano_<timestamp>.pkl       # Validador (RF)
+|   |-- best_model_Random_Forest_arandano_<timestamp>.joblib
+|   `-- model_comparison_results.csv
+|
+|-- templates/                      # Interfaces HTML (Flask)
+|   |-- base.html
+|   |-- index.html
+|   |-- prediccion_individual.html
+|   |-- prediccion_masiva.html
+|   |-- dashboard.html
+|   |-- analisis_vivo.html
+|   |-- agente_recomendaciones.html
+|   `-- agente_optimizacion.html
+|
+|-- static/css/style.css
+|-- visualizaciones1/               # Graficos generados por el pipeline ML
+`-- uploads/                        # Archivos Excel subidos para prediccion batch
+```
+
+---
+
+## Instalacion
+
+```bash
 pip install -r requirements.txt
 ```
 
-**Dependencias instaladas**:
-- Flask 3.0.0 (servidor web)
-- pandas 2.1.3 (procesamiento de datos)
-- numpy 1.26.2 (cálculos numéricos)
-- scikit-learn 1.3.2 (modelo ML)
-- requests 2.31.0 (conexión Firebase)
-- openpyxl 3.1.2 (lectura de Excel)
-- python-dateutil 2.8.2+ (manejo de fechas)
+> Requiere Python 3.10 o superior.
 
-### Paso 2: Verificar Estructura de Archivos
+---
 
-Asegúrate de tener esta estructura:
+## Inicio rapido
 
-```
-sistema_web_completo/
-├── app.py                          # Aplicación Flask principal
-├── agentes_inteligentes.py         # ✨ NUEVO: Módulo de agentes IA
-├── proyecto_ml_completo.py         # Script de entrenamiento ML
-├── requirements.txt                # Dependencias
-├── dataSalvadora.xlsx             # Dataset de entrenamiento
-├── dataSalvadorasintarget.xlsx    # Dataset sin target
-├── modelos_guardados/
-│   └── best_model_Decision_Tree_20251126_003051.pkl
-├── templates/
-│   ├── base.html
-│   ├── index.html                  # ✨ ACTUALIZADO: Con nuevos agentes
-│   ├── prediccion_individual.html
-│   ├── prediccion_masiva.html
-│   ├── dashboard.html
-│   ├── analisis_vivo.html
-│   ├── agente_recomendaciones.html # ✨ NUEVO: Interfaz Agente 1
-│   └── agente_optimizacion.html    # ✨ NUEVO: Interfaz Agente 2
-├── static/
-│   └── (archivos CSS/JS si existen)
-└── uploads/
-```
+El sistema tiene **dos interfaces** que corren en paralelo:
 
-### Paso 3: Iniciar el Servidor
+### 1. API Flask (backend + interfaz HTML)
 
-En PowerShell, ejecuta:
-
-```powershell
+```bash
 python app.py
 ```
 
-Deberías ver:
+Disponible en `http://localhost:5000`
 
-```
- * Serving Flask app 'app'
- * Debug mode: on
-WARNING: This is a development server. Do not use it in a production deployment.
- * Running on all addresses (0.0.0.0)
- * Running on http://127.0.0.1:5000
- * Running on http://192.168.x.x:5000
+### 2. Dashboard Streamlit (interfaz visual principal)
+
+```bash
+streamlit run dashboard_streamlit.py
 ```
 
-### Paso 4: Acceder al Sistema
+Disponible en `http://localhost:8501`
 
-Abre tu navegador y ve a:
-
-```
-http://localhost:5000
-```
+> El dashboard consume la API Flask, por lo que `app.py` debe estar corriendo primero.
 
 ---
 
-## 🎯 Cómo Usar los Agentes Inteligentes
+## Reentrenar el modelo
 
-### Opción 1: Agente de Recomendaciones Agrícolas
-
-1. **Acceder**: Click en "🤖 Agente de Recomendaciones" en la página principal
-2. **Configurar**:
-   - Selecciona tipo de cultivo (Wheat, Rice, Maize, Sugarcane, Cotton)
-   - Selecciona tipo de suelo (Black, Clay, Red, Loamy, Sandy)
-   - Selecciona etapa de crecimiento (Germination, Vegetative, Flowering, Ripening)
-   - Los valores de temperatura, humedad y MOI se cargan automáticamente de Firebase
-3. **Generar**: Click en "Generar Recomendaciones"
-4. **Revisar**:
-   - **Score de Salud**: Gauge visual (0-100)
-   - **Recomendaciones Prioritarias**: Alertas ordenadas por urgencia
-   - **Tabs por Categoría**: Fertilización, Plagas, Manejo, Riego
-
-### Opción 2: Agente de Optimización de Riego
-
-1. **Acceder**: Click en "🤖 Agente de Optimización" en la página principal
-2. **Configurar**:
-   - Selecciona tipo de cultivo y etapa de crecimiento
-   - Valores climáticos se cargan automáticamente
-   - Selecciona días a proyectar (7, 14 o 21 días)
-3. **Generar**: Click en "Generar Calendario de Riego"
-4. **Revisar**:
-   - **Alertas**: Condiciones críticas en tiempo real
-   - **Estadísticas**: Total agua, días de riego, eficiencia
-   - **Calendario**: Tabla con horarios, volúmenes y notas
-   - **Métricas**: Gráfico de distribución y análisis detallado
-
----
-
-## 🔧 Funcionalidades Existentes (Mantenidas)
-
-### 1. Predicción Individual
-- Predicción de necesidad de riego para un cultivo
-- Integración con Firebase para datos en tiempo real
-- Lógica difusa para cálculo automático de MOI
-
-### 2. Predicción Masiva
-- Carga de archivo Excel con múltiples cultivos
-- Predicción batch para todos los registros
-- Exportación de resultados
-
-### 3. Dashboard
-- Visualización de histórico de sensores Firebase
-- Gráficos de temperatura y humedad
-
-### 4. Análisis en Vivo
-- Monitoreo en tiempo real
-- Predicciones automáticas con datos de Firebase
-
----
-
-## 📊 Arquitectura del Sistema Inteligente
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    SISTEMA INTELIGENTE                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   Firebase   │───▶│  Flask App   │◀───│  Modelo ML   │  │
-│  │  (IoT Data)  │    │   (app.py)   │    │ (Decision    │  │
-│  └──────────────┘    └──────┬───────┘    │  Tree)       │  │
-│                             │             └──────────────┘  │
-│                             │                                │
-│                    ┌────────▼────────┐                       │
-│                    │  Agentes IA     │                       │
-│                    │  (agentes_      │                       │
-│                    │   inteligentes  │                       │
-│                    │   .py)          │                       │
-│                    └────────┬────────┘                       │
-│                             │                                │
-│              ┌──────────────┴──────────────┐                 │
-│              │                             │                 │
-│      ┌───────▼────────┐          ┌────────▼────────┐        │
-│      │ Agente de      │          │ Agente de       │        │
-│      │ Recomendaciones│          │ Optimización    │        │
-│      │                │          │                 │        │
-│      │ • Score Salud  │          │ • Calendario    │        │
-│      │ • Fertilización│          │ • Alertas       │        │
-│      │ • Plagas       │          │ • Eficiencia    │        │
-│      │ • Manejo       │          │ • Proyecciones  │        │
-│      └────────────────┘          └─────────────────┘        │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```bash
+python proyecto_ml_completo.py
 ```
 
----
+Ejecuta el pipeline CRISP-DM completo:
+- Remapeo de etapas fenologicas (8 genericas -> 4 del arandano)
+- Calculo de ETc (Hargreaves-Samani x Kc FAO-56)
+- Ingenieria de features (16 variables, incluyendo moi_deficit y moi_exceso)
+- Particion 70/30 estratificada por etapa fenologica
+- Entrenamiento y comparacion de GB, RF, Decision Tree y Regresion Logistica
+- Guardado del modelo en `modelos_guardados1/`
 
-## 🧪 Pruebas Rápidas
-
-### Probar Agente de Recomendaciones desde Python:
-
+Despues de reentrenar, actualiza el nombre del archivo en `app.py` linea:
 ```python
-from agentes_inteligentes import AgenteRecomendaciones
-
-agente = AgenteRecomendaciones()
-
-# Calcular score de salud
-score, estado = agente.calcular_score_salud(
-    crop_id='Wheat',
-    temp=28,
-    humedad=65,
-    moi=45
-)
-print(f"Score: {score} - {estado}")
-
-# Generar recomendaciones
-recomendaciones = agente.generar_recomendaciones(
-    crop_id='Wheat',
-    soil_type='Black Soil',
-    seedling_stage='Flowering',
-    moi=45,
-    temp=28,
-    humedad=65
-)
-print(recomendaciones)
-```
-
-### Probar Agente de Optimización desde Python:
-
-```python
-from agentes_inteligentes import AgenteOptimizacion
-
-agente = AgenteOptimizacion()
-
-# Generar calendario
-calendario = agente.generar_calendario_riego(
-    crop_id='Wheat',
-    seedling_stage='Flowering',
-    moi=45,
-    temp=28,
-    humedad=65,
-    dias=7
-)
-print(calendario)
+_MODEL_FILE = 'modelos_guardados1/best_model_Gradient_Boosting_arandano_<timestamp>.pkl'
 ```
 
 ---
 
-## 🎨 Características de la Interfaz
+## Arquitectura del sistema
 
-### Diseño Moderno
-- ✅ Bootstrap 5 para diseño responsive
-- ✅ Bootstrap Icons para iconografía
-- ✅ Chart.js para visualizaciones interactivas
-- ✅ Código de colores por prioridad (rojo=alta, amarillo=media, verde=baja)
-- ✅ Animaciones suaves y transiciones
-
-### Experiencia de Usuario
-- ✅ Datos precargados desde Firebase
-- ✅ Validación de formularios
-- ✅ Feedback visual inmediato
-- ✅ Scroll automático a resultados
-- ✅ Responsive para móviles y tablets
-
----
-
-## 🔍 Solución de Problemas
-
-### Error: "ModuleNotFoundError: No module named 'agentes_inteligentes'"
-**Solución**: Asegúrate de estar en la carpeta correcta del proyecto.
-
-### Error: "FileNotFoundError: best_model_Decision_Tree..."
-**Solución**: Verifica que el archivo del modelo existe en `modelos_guardados/`
-
-### Error: Firebase no responde
-**Solución**: Verifica tu conexión a internet. El sistema funciona sin Firebase pero con datos por defecto.
-
-### El servidor no inicia
-**Solución**: 
-1. Verifica que el puerto 5000 no esté en uso
-2. Ejecuta: `netstat -ano | findstr :5000`
-3. Si está ocupado, cambia el puerto en `app.py` línea final
-
----
-
-## 📈 Próximos Pasos Sugeridos
-
-1. **Personalizar Base de Conocimiento**: Edita `agentes_inteligentes.py` para añadir más cultivos o reglas
-2. **Integrar Pronóstico del Clima**: Conecta con API de clima para proyecciones más precisas
-3. **Añadir Persistencia**: Guarda histórico de recomendaciones en base de datos
-4. **Notificaciones**: Implementa alertas por email o SMS
-5. **Dashboard de Agentes**: Crea vista consolidada de ambos agentes
+```
++-------------------+     ESP-NOW      +------------------+
+|  Nodos sensores   | ---------------> |  ESP32 coordinador|
+|  SEN0193 + DHT22  |                  |  (Edge AI / nodo) |
++-------------------+                  +--------+---------+
+                                                 |
+                                         WiFi / Firebase
+                                                 |
+                                     +-----------v----------+
+                                     |  Firebase Realtime DB |
+                                     +-----------+----------+
+                                                 |
+                             +-------------------v--------------------+
+                             |           app.py  (Flask API)          |
+                             |                                        |
+                             |  +------------+   +----------------+  |
+                             |  | Gradient   |   | Motor Mamdani  |  |
+                             |  | Boosting   |   | (22 reglas)    |  |
+                             |  +------------+   +----------------+  |
+                             |                                        |
+                             |  +------------+   +----------------+  |
+                             |  | Agente     |   | Agente         |  |
+                             |  | Recomend.  |   | Optimizacion   |  |
+                             |  +------------+   +----------------+  |
+                             |                                        |
+                             |  Endpoints IoT:                        |
+                             |  POST /api/iot/sensor-data             |
+                             |  GET  /api/iot/actuator-signal         |
+                             |  POST /api/iot/heartbeat               |
+                             +-------------------+--------------------+
+                                                 |
+                             +-------------------v--------------------+
+                             |     dashboard_streamlit.py             |
+                             |     KPIs · Historico · ETc · Mamdani  |
+                             +----------------------------------------+
+```
 
 ---
 
-## 📞 Soporte
+## Endpoints de la API Flask
 
-Si tienes problemas:
-1. Revisa los logs en la consola donde ejecutaste `python app.py`
-2. Verifica que todas las dependencias estén instaladas
-3. Asegúrate de tener Python 3.8 o superior
+### Prediccion
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/predict` | Prediccion individual (GB + Mamdani + Gemini) |
+| POST | `/api/predict-batch` | Prediccion masiva desde archivo Excel |
+
+### IoT Hardware (ESP32)
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/iot/sensor-data` | Recibe lecturas SEN0193 + DHT22. Devuelve senal de actuacion inmediata |
+| GET | `/api/iot/actuator-signal` | Polling: consulta si debe activarse la electrovalvula (0 o 1) |
+| POST | `/api/iot/heartbeat` | Registro de disponibilidad del nodo ESP32 |
+
+### Datos y monitoreo
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| GET | `/api/firebase-data` | Historico de lecturas IoT |
+| GET | `/api/predicciones-historial` | Ultimas 50 predicciones guardadas |
+| GET | `/api/latest-firebase` | Ultima lectura (prioriza MOI real si ESP32 activo) |
+| POST | `/api/start-monitoring` | Inicia hilo de monitoreo en tiempo real |
+| GET | `/api/last-prediction` | Ultima prediccion del monitor |
+
+### Agentes inteligentes
+
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/agente-recomendaciones` | Score de salud + recomendaciones agricolas |
+| POST | `/api/agente-optimizacion` | Calendario de riego + alertas + metricas |
+| POST | `/api/analisis-completo` | Ambos agentes en una sola llamada |
 
 ---
 
-## ✨ ¡Disfruta tu Sistema Inteligente!
+## Ejemplo: enviar datos desde ESP32
 
-Tu sistema ahora combina:
-- 🧠 Machine Learning (Decision Tree)
-- 🤖 Inteligencia Artificial (Agentes Basados en Reglas)
-- 🌐 IoT (Firebase)
-- 📊 Visualización de Datos
-- 💧 Optimización de Recursos
+```bash
+curl -X POST http://localhost:5000/api/iot/sensor-data \
+  -H "Content-Type: application/json" \
+  -d '{
+    "node_id"        : "ESP32_CAMPO_01",
+    "moi"            : 42.5,
+    "temp"           : 27.3,
+    "humidity"       : 61.0,
+    "crop_id"        : "Wheat",
+    "soil_type"      : "Sandy Soil",
+    "seedling_stage" : "Floracion",
+    "timestamp"      : "2026-06-07T10:30:00"
+  }'
+```
 
-**¡Feliz cultivo inteligente!** 🌱
+Respuesta:
+```json
+{
+  "received"        : true,
+  "prediction"      : 1,
+  "prediction_text" : "Requiere Riego",
+  "actuator_signal" : 1,
+  "confidence"      : 0.9987,
+  "score_mamdani"   : 62.4,
+  "nivel_prioridad" : "MEDIA"
+}
+```
+
+El ESP32 luego consulta la senal de actuacion:
+```bash
+curl http://localhost:5000/api/iot/actuator-signal?node_id=ESP32_CAMPO_01
+```
+
+---
+
+## Modulos de IA
+
+### Gradient Boosting (modelo principal)
+- 200 estimadores, learning rate 0.08, max_depth 5
+- Entrenado con 16 features incluyendo ETc y umbrales especificos del arandano
+- F1-Score: **0.9922** | Accuracy: **99.37 %** | Falsos negativos: **12**
+
+### Random Forest (validador complementario)
+- 200 arboles, max_features='sqrt', class_weight='balanced'
+- F1-Score: **0.9904** | Accuracy: **99.22 %** | Falsos negativos: **7**
+
+### Motor Mamdani (sistema experto)
+- Variables de entrada: MOI, temperatura, humedad ambiental, ETc
+- 5 conjuntos difusos por variable (funciones triangulares y trapezoidales)
+- 22 reglas SI-ENTONCES calibradas para *Vaccinium corymbosum*
+- Defuzzificacion por centroide sobre universo [0, 100]
+- Umbral de decision: score > 50 → Requiere Riego
+
+### Agente de Recomendaciones
+- Score de salud del cultivo (0-100)
+- Recomendaciones de fertilizacion por etapa fenologica
+- Alertas de plagas segun condiciones climaticas
+- Enriquecimiento opcional con Gemini AI
+
+### Agente de Optimizacion
+- Calendario de riego proyectado (7, 14 o 21 dias)
+- Calculo de volumen de agua por sesion (litros/m2)
+- Alertas predictivas de condiciones criticas
+- Metricas de eficiencia hidrica
+
+---
+
+## Variables del modelo
+
+| Feature | Descripcion |
+|---|---|
+| `crop_encoded` | Tipo de cultivo (Label Encoding) |
+| `soil_encoded` | Tipo de suelo (Label Encoding) |
+| `seedling_encoded` | Etapa fenologica del arandano (4 clases) |
+| `MOI` | Indice de humedad del suelo (%) — SEN0193 v1.2 |
+| `temp` | Temperatura ambiental (°C) — DHT22 |
+| `humidity_cleaned` | Humedad relativa del aire (%) — DHT22 |
+| `etc` | ETc = Kc x ETo (Hargreaves-Samani, mm/dia) |
+| `temp_humidity_ratio` | temp / (humidity + 1) |
+| `moi_temp_interaction` | MOI x temp |
+| `temp_squared` | temp^2 |
+| `humidity_squared` | humidity^2 |
+| `moi_squared` | MOI^2 |
+| `moi_deficit` | max(0, 60 - MOI) — deficit bajo umbral arandano |
+| `moi_exceso` | max(0, MOI - 80) — exceso sobre umbral arandano |
+| `moi_etc_interaction` | MOI x ETc |
+| `etc_humidity_ratio` | ETc / (humidity + 1) |
+
+---
+
+## Etapas fenologicas del arandano
+
+| Etapa interna | Etapas originales mapeadas | Kc FAO-56 |
+|---|---|---|
+| Germinacion | Germination, Seedling Stage | 0.30 |
+| Desarrollo_Vegetativo | Vegetative Growth / Root or Tuber Development | 0.70 |
+| Floracion | Flowering, Pollination | 1.05 |
+| Fructificacion | Fruit/Grain/Bulb Formation, Maturation, Harvest | 0.90 |
+
+---
+
+## Variables de entorno (opcional)
+
+Crea un archivo `.env` en la raiz del proyecto:
+
+```
+GOOGLE_AI_API_KEY=tu_clave_de_gemini
+GOOGLE_AI_MODEL=gemini-2.5-flash
+GOOGLE_AI_ENABLED=true
+```
+
+Sin estas variables el sistema funciona completo; solo el modulo Gemini queda desactivado.
+
+---
+
+## Solucion de problemas
+
+**`FileNotFoundError: best_model_Gradient_Boosting_arandano_...`**
+Ejecuta `python proyecto_ml_completo.py` para generar el modelo y actualiza el nombre del archivo en la linea `_MODEL_FILE` de `app.py`.
+
+**`ModuleNotFoundError`**
+Ejecuta `pip install -r requirements.txt`.
+
+**Flask API no disponible (dashboard muestra error)**
+Asegurate de correr `python app.py` antes de lanzar el dashboard.
+
+**Puerto 5000 ocupado**
+Cambia el puerto en la ultima linea de `app.py`: `app.run(port=5001)` y actualiza `FLASK_URL` en `dashboard_streamlit.py`.
+
+---
+
+## Metricas finales del pipeline
+
+| Modelo | Accuracy | F1-Score | ROC-AUC | Falsos neg. |
+|---|---|---|---|---|
+| Gradient Boosting | 99.37 % | 0.9922 | 0.9998 | 12 |
+| Random Forest | 99.22 % | 0.9904 | 0.9993 | 7 |
+| Decision Tree | 99.06 % | 0.9885 | 0.9993 | 19 |
+| Logistic Regression | 94.53 % | 0.9321 | 0.9880 | 145 |
+
+Particion: 70 % entrenamiento (10 701 registros) / 30 % prueba (4 587 registros)
+Estratificacion: por etapa fenologica del arandano

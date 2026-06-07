@@ -1,23 +1,38 @@
+# ============================================================
+# Sistema Inteligente de Riego — Vaccinium corymbosum
+# Facultad de Ingenieria de Sistemas e Informatica — UNMSM
+# ============================================================
+
+# ---- Servidor web ----
 Flask==3.0.3
 gunicorn==22.0.0
 
-# Compatibles con Python 3.13
+# ---- Datos y calculo numerico ----
 numpy==2.1.1
 pandas==2.2.3
-scikit-learn==1.6.0
-
-requests==2.32.3
 openpyxl==3.1.5
 python-dateutil==2.9.0.post0
-google-generativeai==0.7.2
 
-# Librerías de ML compatibles
+# ---- Machine Learning ----
+scikit-learn==1.6.0
+imbalanced-learn==0.12.3
 xgboost==2.1.1
 lightgbm==4.4.0
-imbalanced-learn==0.12.3
+joblib==1.5.2
 
-# Visualización
+# ---- Motor de Inferencia Difusa Mamdani ----
+scikit-fuzzy==0.5.0
+
+# ---- Visualizacion ----
+matplotlib==3.10.7
 seaborn==0.13.2
+plotly==6.4.0
 
+# ---- Dashboard Streamlit ----
+streamlit==1.58.0
 
+# ---- Integracion Firebase / HTTP ----
+requests==2.32.3
 
+# ---- IA Generativa (Agente Gemini) ----
+google-generativeai==0.7.2
