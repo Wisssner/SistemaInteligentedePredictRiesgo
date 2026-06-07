@@ -6,7 +6,10 @@
       "Bash(python -c \"from sklearn.ensemble import RandomForestClassifier; print\\(''RF OK''\\)\")",
       "Bash(python:*)",
       "Bash(pip install:*)",
-      "Bash(set PYTHONIOENCODING=utf-8)"
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(where pdflatex:*)",
+      "Bash(where xelatex:*)",
+      "Bash(\"C:/Users/John/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe\" -interaction=nonstopmode diagrama_flujo_sistema.tex)"
     ]
   }
 }
