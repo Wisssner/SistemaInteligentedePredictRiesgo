@@ -1,341 +1,260 @@
-# Sistema Inteligente de Riego — Vaccinium corymbosum
+# Sistema Inteligente de Riego — Edge AI (TinyML)
 
 **Universidad Nacional Mayor de San Marcos — FISI**
-Practicas Pre Profesionales · Seccion 1 · Lima, Peru
+Practicas Pre-Profesionales · Lima, Peru
 
 ---
 
-## Descripcion general
+## Concepto central: el modelo vive en el ESP32
 
-Sistema de clasificacion binaria con Machine Learning para la gestion optima del riego en el cultivo de **arandano alto** (*Vaccinium corymbosum*) en la region costera de Lima. Determina en tiempo real si el cultivo **requiere riego (1) o no (0)** a partir de variables edafoclimaticas capturadas por sensores IoT.
+El nucleo del sistema es un **Decision Tree Classifier** (max_depth=4) entrenado
+con datos de sensores reales (TARP.csv) y exportado como **codigo C puro** al
+archivo `modelo_edge.h`. Ese archivo se sube directamente al microcontrolador
+ESP32, que ejecuta la inferencia de forma completamente offline.
 
-| Componente | Descripcion |
-|---|---|
-| Algoritmo principal | Gradient Boosting (F1 = 0.9922, Accuracy = 99.37 %) |
-| Validador ML | Random Forest (F1 = 0.9904, Accuracy = 99.22 %) |
-| Sistema experto | Motor de Inferencia Difusa Mamdani (22 reglas) |
-| Dataset | 15 288 registros, split 70/30 estratificado por etapa fenologica |
-| Features | 16 (incluye ETc Hargreaves-Samani x Kc FAO-56 y umbrales arandano) |
-| Agente IA | Gemini AI (recomendaciones agricolas contextuales) |
-| IoT | Firebase Realtime Database + ESP32 via ESP-NOW |
+```
+Sensores (DHT22 + SEN0193)
+        │
+        ▼
+┌─────────────────────────────────────────────────────────┐
+│                   ESP32  (Edge AI)                      │
+│                                                         │
+│  float sm   = leerHumedadSuelo();                       │
+│  float temp = dht.readTemperature();                    │
+│  float hum  = dht.readHumidity();                       │
+│                                                         │
+│  int decision = predict(sm, temp, hum);   // modelo_edge.h │
+│  digitalWrite(VALVE_PIN, decision);                     │
+│                                                         │
+│  // Si hay WiFi: reporta telemetria via HTTP            │
+│  // Si no hay WiFi: sigue funcionando igual             │
+└─────────────────────────────────────────────────────────┘
+        │  (WiFi, cuando disponible)
+        ▼
+  Flask API REST  ──►  Firebase Realtime DB
+        │
+        ▼
+  Dashboard Streamlit  (panel municipal movil)
+```
+
+**Por que TinyML en el ESP32?**
+
+| Escenario              | Resultado |
+|------------------------|-----------|
+| WiFi disponible        | Riega + reporta telemetria |
+| Corte de internet      | **Riega igual** — decision autonoma |
+| Servidor Flask caido   | **Riega igual** — no hay dependencia |
+| Firebase inaccesible   | **Riega igual** — solo pierde historial |
 
 ---
 
-## Estructura del proyecto
+## Arquitectura de archivos
 
 ```
-SistemaInteligentedePredictRiesgo/
-|
-|-- app.py                          # Servidor Flask + API REST completa
-|-- agentes_inteligentes.py         # Agente de Recomendaciones + Agente de Optimizacion
-|-- expert_system.py                # Motor Mamdani genuino (fuzzificacion + centroide)
-|-- proyecto_ml_completo.py         # Pipeline CRISP-DM: datos, ETc, entrenamiento, guardado
-|-- guardar_predicciones.py         # Persistencia en Firebase Realtime Database
-|-- dashboard_streamlit.py          # Dashboard visual interactivo (Streamlit + Plotly)
-|
-|-- dataSalvadora.xlsx              # Dataset de entrenamiento (15 288 registros)
-|-- dataSalvadorasintarget.xlsx     # Dataset sin variable objetivo (prediccion batch)
-|-- requirements.txt                # Dependencias del proyecto
-|-- diagnostico.md                  # Analisis de cumplimiento del documento academico
-|
-|-- modelos_guardados1/
-|   |-- best_model_Gradient_Boosting_arandano_<timestamp>.pkl   # Modelo principal (GB)
-|   |-- best_model_Gradient_Boosting_arandano_<timestamp>.joblib
-|   |-- best_model_Random_Forest_arandano_<timestamp>.pkl       # Validador (RF)
-|   |-- best_model_Random_Forest_arandano_<timestamp>.joblib
-|   `-- model_comparison_results.csv
-|
-|-- templates/                      # Interfaces HTML (Flask)
-|   |-- base.html
-|   |-- index.html
-|   |-- prediccion_individual.html
-|   |-- prediccion_masiva.html
-|   |-- dashboard.html
-|   |-- analisis_vivo.html
-|   |-- agente_recomendaciones.html
-|   `-- agente_optimizacion.html
-|
-|-- static/css/style.css
-|-- visualizaciones1/               # Graficos generados por el pipeline ML
-`-- uploads/                        # Archivos Excel subidos para prediccion batch
+├── proyecto_ml_completo.py   # Entrena el DT y genera modelo_edge.h
+├── modelo_edge.h             # Codigo C puro para el ESP32 (auto-generado)
+├── app.py                    # API REST de telemetria y override
+├── dashboard_streamlit.py    # Panel municipal (Firebase, override manual)
+├── TARP.csv                  # Dataset de entrenamiento (no incluido en repo)
+└── requirements.txt
 ```
 
 ---
 
-## Instalacion
+## modelo_edge.h — como funciona
 
-```bash
-pip install -r requirements.txt
+El archivo generado contiene una funcion `predict()` en C++ puro:
+
+```cpp
+#include "modelo_edge.h"
+
+void loop() {
+    float sm   = leerHumedadSuelo();        // 0-100 %
+    float temp = dht.readTemperature();     // grados C
+    float hum  = dht.readHumidity();        // 0-100 %
+
+    int decision = predict(sm, temp, hum);
+    // decision == 1 → abrir valvula (regar)
+    // decision == 0 → cerrar valvula
+
+    digitalWrite(VALVE_PIN, decision);
+
+    // Telemetria opcional (no bloquea el riego)
+    if (WiFi.isConnected()) {
+        enviarTelemetria(sm, temp, hum, decision);
+    }
+}
 ```
 
-> Requiere Python 3.10 o superior.
+La funcion interna es un bloque de `if/else` anidados — sin matrices,
+sin memoria dinamica, sin dependencias. Ocupa menos de 2 KB de flash.
 
 ---
 
-## Inicio rapido
+## Entrenamiento del modelo
 
-El sistema tiene **dos interfaces** que corren en paralelo:
+### Requisitos
 
-### 1. API Flask (backend + interfaz HTML)
-
-```bash
-python app.py
+```
+pip install scikit-learn pandas numpy micromlgen
 ```
 
-Disponible en `http://localhost:5000`
-
-### 2. Dashboard Streamlit (interfaz visual principal)
-
-```bash
-streamlit run dashboard_streamlit.py
-```
-
-Disponible en `http://localhost:8501`
-
-> El dashboard consume la API Flask, por lo que `app.py` debe estar corriendo primero.
-
----
-
-## Reentrenar el modelo
+### Ejecutar el pipeline
 
 ```bash
 python proyecto_ml_completo.py
 ```
 
-Ejecuta el pipeline CRISP-DM completo:
-- Remapeo de etapas fenologicas (8 genericas -> 4 del arandano)
-- Calculo de ETc (Hargreaves-Samani x Kc FAO-56)
-- Ingenieria de features (16 variables, incluyendo moi_deficit y moi_exceso)
-- Particion 70/30 estratificada por etapa fenologica
-- Entrenamiento y comparacion de GB, RF, Decision Tree y Regresion Logistica
-- Guardado del modelo en `modelos_guardados1/`
-
-Despues de reentrenar, actualiza el nombre del archivo en `app.py` linea:
-```python
-_MODEL_FILE = 'modelos_guardados1/best_model_Gradient_Boosting_arandano_<timestamp>.pkl'
-```
+El script:
+1. Carga `TARP.csv` (features: Soil Moisture, Air temperature (C), Air humidity (%))
+2. Mapea Status: ON→1, OFF→0
+3. Entrena un Decision Tree con max_depth=4
+4. Imprime Accuracy, Precision, Recall, F1
+5. Exporta el modelo a `modelo_edge.h`
 
 ---
 
-## Arquitectura del sistema
+## API REST (app.py)
 
-```
-+-------------------+     ESP-NOW      +------------------+
-|  Nodos sensores   | ---------------> |  ESP32 coordinador|
-|  SEN0193 + DHT22  |                  |  (Edge AI / nodo) |
-+-------------------+                  +--------+---------+
-                                                 |
-                                         WiFi / Firebase
-                                                 |
-                                     +-----------v----------+
-                                     |  Firebase Realtime DB |
-                                     +-----------+----------+
-                                                 |
-                             +-------------------v--------------------+
-                             |           app.py  (Flask API)          |
-                             |                                        |
-                             |  +------------+   +----------------+  |
-                             |  | Gradient   |   | Motor Mamdani  |  |
-                             |  | Boosting   |   | (22 reglas)    |  |
-                             |  +------------+   +----------------+  |
-                             |                                        |
-                             |  +------------+   +----------------+  |
-                             |  | Agente     |   | Agente         |  |
-                             |  | Recomend.  |   | Optimizacion   |  |
-                             |  +------------+   +----------------+  |
-                             |                                        |
-                             |  Endpoints IoT:                        |
-                             |  POST /api/iot/sensor-data             |
-                             |  GET  /api/iot/actuator-signal         |
-                             |  POST /api/iot/heartbeat               |
-                             +-------------------+--------------------+
-                                                 |
-                             +-------------------v--------------------+
-                             |     dashboard_streamlit.py             |
-                             |     KPIs · Historico · ETc · Mamdani  |
-                             +----------------------------------------+
-```
-
----
-
-## Endpoints de la API Flask
-
-### Prediccion
-
-| Metodo | Ruta | Descripcion |
-|---|---|---|
-| POST | `/api/predict` | Prediccion individual (GB + Mamdani + Gemini) |
-| POST | `/api/predict-batch` | Prediccion masiva desde archivo Excel |
-
-### IoT Hardware (ESP32)
-
-| Metodo | Ruta | Descripcion |
-|---|---|---|
-| POST | `/api/iot/sensor-data` | Recibe lecturas SEN0193 + DHT22. Devuelve senal de actuacion inmediata |
-| GET | `/api/iot/actuator-signal` | Polling: consulta si debe activarse la electrovalvula (0 o 1) |
-| POST | `/api/iot/heartbeat` | Registro de disponibilidad del nodo ESP32 |
-
-### Datos y monitoreo
-
-| Metodo | Ruta | Descripcion |
-|---|---|---|
-| GET | `/api/firebase-data` | Historico de lecturas IoT |
-| GET | `/api/predicciones-historial` | Ultimas 50 predicciones guardadas |
-| GET | `/api/latest-firebase` | Ultima lectura (prioriza MOI real si ESP32 activo) |
-| POST | `/api/start-monitoring` | Inicia hilo de monitoreo en tiempo real |
-| GET | `/api/last-prediction` | Ultima prediccion del monitor |
-
-### Agentes inteligentes
-
-| Metodo | Ruta | Descripcion |
-|---|---|---|
-| POST | `/api/agente-recomendaciones` | Score de salud + recomendaciones agricolas |
-| POST | `/api/agente-optimizacion` | Calendario de riego + alertas + metricas |
-| POST | `/api/analisis-completo` | Ambos agentes en una sola llamada |
-
----
-
-## Ejemplo: enviar datos desde ESP32
+### Instalacion y arranque
 
 ```bash
-curl -X POST http://localhost:5000/api/iot/sensor-data \
-  -H "Content-Type: application/json" \
-  -d '{
-    "node_id"        : "ESP32_CAMPO_01",
-    "moi"            : 42.5,
-    "temp"           : 27.3,
-    "humidity"       : 61.0,
-    "crop_id"        : "Wheat",
-    "soil_type"      : "Sandy Soil",
-    "seedling_stage" : "Floracion",
-    "timestamp"      : "2026-06-07T10:30:00"
-  }'
+pip install flask flask-cors requests
+export FIREBASE_URL=https://tu-proyecto-default-rtdb.firebaseio.com
+export FLASK_DEBUG=false
+python app.py
 ```
 
-Respuesta:
+### Endpoints
+
+#### `POST /api/iot/telemetry`
+El ESP32 reporta cada lectura y la decision que tomo localmente.
+
+```json
+// Request
+{
+    "soil_moisture":   45.2,
+    "air_temperature": 22.1,
+    "air_humidity":    60.5,
+    "valve_decision":  1,
+    "node_id":         "parque_central_01"
+}
+
+// Response 201
+{ "ok": true, "firebase_key": "-NxxxxxYYYY" }
+```
+
+#### `POST /api/iot/override`
+Envia una orden de control manual forzado. El ESP32 hace polling de
+`/control/override` en Firebase y obedece el comando.
+
+```json
+// Request
+{ "command": 1, "duration": 120 }
+
+// Response 200
+{ "ok": true, "command": 1, "duration": 120, "state": "ON" }
+```
+
+| command | Efecto |
+|---------|--------|
+| `1`     | Abrir valvula (forzar riego) |
+| `0`     | Cerrar valvula (detener riego) |
+
+#### `GET /api/iot/status`
+Retorna el ultimo estado del nodo y el override activo.
+
 ```json
 {
-  "received"        : true,
-  "prediction"      : 1,
-  "prediction_text" : "Requiere Riego",
-  "actuator_signal" : 1,
-  "confidence"      : 0.9987,
-  "score_mamdani"   : 62.4,
-  "nivel_prioridad" : "MEDIA"
+    "ok": true,
+    "latest_telemetry": { ... },
+    "active_override":  { ... }
 }
 ```
 
-El ESP32 luego consulta la senal de actuacion:
+#### `GET /health`
+Verificacion de disponibilidad del servidor.
+
+---
+
+## Dashboard Streamlit
+
+El panel municipal lee datos desde Firebase y muestra:
+
+- **Humedad de suelo** actual (con indicador de nivel)
+- **Temperatura del aire**
+- **Humedad relativa del aire**
+- **Estado de la valvula** (banner verde/rojo)
+- **Historial de las ultimas lecturas** con tabla coloreada
+- **Boton "FORZAR RIEGO MANUAL"** — envia override via `/api/iot/override`
+- **Boton "Detener Riego"** — envia comando 0
+
+### Arranque
+
 ```bash
-curl http://localhost:5000/api/iot/actuator-signal?node_id=ESP32_CAMPO_01
+pip install streamlit requests pandas
+export API_BASE_URL=http://localhost:5000
+export FIREBASE_URL=https://tu-proyecto-default-rtdb.firebaseio.com
+streamlit run dashboard_streamlit.py
+```
+
+El dashboard se auto-refresca cada 15 segundos.
+
+---
+
+## Flujo completo de datos
+
+```
+1. ESP32 lee sensores cada N segundos
+2. Llama a predict(sm, temp, hum) — decision local, sin red
+3. Activa/desactiva la valvula
+4. Si hay WiFi: POST /api/iot/telemetry  →  Flask  →  Firebase
+5. ESP32 consulta Firebase control/override periodicamente
+6. Si hay override activo: lo ejecuta (abre o cierra valvula)
+7. Dashboard municipal lee Firebase y muestra estado en tiempo real
+8. Operador puede pulsar "Forzar Riego Manual" en el dashboard
 ```
 
 ---
 
-## Modulos de IA
+## Variables de entorno
 
-### Gradient Boosting (modelo principal)
-- 200 estimadores, learning rate 0.08, max_depth 5
-- Entrenado con 16 features incluyendo ETc y umbrales especificos del arandano
-- F1-Score: **0.9922** | Accuracy: **99.37 %** | Falsos negativos: **12**
-
-### Random Forest (validador complementario)
-- 200 arboles, max_features='sqrt', class_weight='balanced'
-- F1-Score: **0.9904** | Accuracy: **99.22 %** | Falsos negativos: **7**
-
-### Motor Mamdani (sistema experto)
-- Variables de entrada: MOI, temperatura, humedad ambiental, ETc
-- 5 conjuntos difusos por variable (funciones triangulares y trapezoidales)
-- 22 reglas SI-ENTONCES calibradas para *Vaccinium corymbosum*
-- Defuzzificacion por centroide sobre universo [0, 100]
-- Umbral de decision: score > 50 → Requiere Riego
-
-### Agente de Recomendaciones
-- Score de salud del cultivo (0-100)
-- Recomendaciones de fertilizacion por etapa fenologica
-- Alertas de plagas segun condiciones climaticas
-- Enriquecimiento opcional con Gemini AI
-
-### Agente de Optimizacion
-- Calendario de riego proyectado (7, 14 o 21 dias)
-- Calculo de volumen de agua por sesion (litros/m2)
-- Alertas predictivas de condiciones criticas
-- Metricas de eficiencia hidrica
+| Variable       | Descripcion                         | Ejemplo |
+|----------------|-------------------------------------|---------|
+| `FIREBASE_URL` | URL base de Firebase Realtime DB    | `https://xxx-rtdb.firebaseio.com` |
+| `API_BASE_URL` | URL del servidor Flask (dashboard)  | `http://localhost:5000` |
+| `PORT`         | Puerto del servidor Flask           | `5000` |
+| `FLASK_DEBUG`  | Modo debug Flask (`true`/`false`)   | `false` |
 
 ---
 
-## Variables del modelo
+## Dataset TARP.csv
 
-| Feature | Descripcion |
-|---|---|
-| `crop_encoded` | Tipo de cultivo (Label Encoding) |
-| `soil_encoded` | Tipo de suelo (Label Encoding) |
-| `seedling_encoded` | Etapa fenologica del arandano (4 clases) |
-| `MOI` | Indice de humedad del suelo (%) — SEN0193 v1.2 |
-| `temp` | Temperatura ambiental (°C) — DHT22 |
-| `humidity_cleaned` | Humedad relativa del aire (%) — DHT22 |
-| `etc` | ETc = Kc x ETo (Hargreaves-Samani, mm/dia) |
-| `temp_humidity_ratio` | temp / (humidity + 1) |
-| `moi_temp_interaction` | MOI x temp |
-| `temp_squared` | temp^2 |
-| `humidity_squared` | humidity^2 |
-| `moi_squared` | MOI^2 |
-| `moi_deficit` | max(0, 60 - MOI) — deficit bajo umbral arandano |
-| `moi_exceso` | max(0, MOI - 80) — exceso sobre umbral arandano |
-| `moi_etc_interaction` | MOI x ETc |
-| `etc_humidity_ratio` | ETc / (humidity + 1) |
+El modelo fue entrenado con el dataset TARP (Tree Autonomous Riego Predictor).
+Features utilizadas (de las 15 columnas disponibles):
+
+| Feature              | Descripcion                  | Rango tipico |
+|----------------------|------------------------------|--------------|
+| `Soil Moisture`      | Humedad del suelo            | 0-100 %      |
+| `Air temperature (C)`| Temperatura del aire         | 10-45 °C     |
+| `Air humidity (%)`   | Humedad relativa del aire    | 20-100 %     |
+
+Target: `Status` — `ON` (regar) o `OFF` (no regar).
+
+Se usan solo estas 3 features porque son exactamente las que mide el nodo
+IoT con los sensores SEN0193 (suelo) y DHT22 (aire).
 
 ---
 
-## Etapas fenologicas del arandano
+## Dependencias principales
 
-| Etapa interna | Etapas originales mapeadas | Kc FAO-56 |
-|---|---|---|
-| Germinacion | Germination, Seedling Stage | 0.30 |
-| Desarrollo_Vegetativo | Vegetative Growth / Root or Tuber Development | 0.70 |
-| Floracion | Flowering, Pollination | 1.05 |
-| Fructificacion | Fruit/Grain/Bulb Formation, Maturation, Harvest | 0.90 |
-
----
-
-## Variables de entorno (opcional)
-
-Crea un archivo `.env` en la raiz del proyecto:
-
+```txt
+flask
+flask-cors
+requests
+scikit-learn
+pandas
+numpy
+streamlit
+micromlgen          # pip install micromlgen  (opcional, para export alternativo)
 ```
-GOOGLE_AI_API_KEY=tu_clave_de_gemini
-GOOGLE_AI_MODEL=gemini-2.5-flash
-GOOGLE_AI_ENABLED=true
-```
-
-Sin estas variables el sistema funciona completo; solo el modulo Gemini queda desactivado.
-
----
-
-## Solucion de problemas
-
-**`FileNotFoundError: best_model_Gradient_Boosting_arandano_...`**
-Ejecuta `python proyecto_ml_completo.py` para generar el modelo y actualiza el nombre del archivo en la linea `_MODEL_FILE` de `app.py`.
-
-**`ModuleNotFoundError`**
-Ejecuta `pip install -r requirements.txt`.
-
-**Flask API no disponible (dashboard muestra error)**
-Asegurate de correr `python app.py` antes de lanzar el dashboard.
-
-**Puerto 5000 ocupado**
-Cambia el puerto en la ultima linea de `app.py`: `app.run(port=5001)` y actualiza `FLASK_URL` en `dashboard_streamlit.py`.
-
----
-
-## Metricas finales del pipeline
-
-| Modelo | Accuracy | F1-Score | ROC-AUC | Falsos neg. |
-|---|---|---|---|---|
-| Gradient Boosting | 99.37 % | 0.9922 | 0.9998 | 12 |
-| Random Forest | 99.22 % | 0.9904 | 0.9993 | 7 |
-| Decision Tree | 99.06 % | 0.9885 | 0.9993 | 19 |
-| Logistic Regression | 94.53 % | 0.9321 | 0.9880 | 145 |
-
-Particion: 70 % entrenamiento (10 701 registros) / 30 % prueba (4 587 registros)
-Estratificacion: por etapa fenologica del arandano
