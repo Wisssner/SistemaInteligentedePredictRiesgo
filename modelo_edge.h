@@ -4,9 +4,9 @@
  * Generado automaticamente por proyecto_ml_completo.py
  *
  * Algoritmo : Decision Tree Classifier (max_depth=4)
- * Accuracy  : 66.25 %   (test 30 %)
- * Nodos     : 31
- * Features  : Soil Moisture | Air temperature | Air humidity
+ * Accuracy  : 87.19 %   (test 30 %)
+ * Nodos     : 17
+ * Features  : Soil Moisture | Temperature | Time
  * Clases    : 0 = OFF (no regar)  |  1 = ON (activar valvula)
  *
  * -- USO EN ESP32 (Arduino IDE / PlatformIO) ----------------------
@@ -28,82 +28,54 @@
 // -- Metadatos del modelo -------------------------------------------
 #define MODEL_N_FEATURES  3
 #define MODEL_MAX_DEPTH   4
-#define MODEL_N_NODES     31
-#define MODEL_ACCURACY    0.662500f
+#define MODEL_N_NODES     17
+#define MODEL_ACCURACY    0.871933f
 
 // -- Indices de features --------------------------------------------
 #define IDX_SOIL_MOISTURE                  0
-#define IDX_AIR_TEMPERATURE_C              1
-#define IDX_AIR_HUMIDITY_PCT               2
+#define IDX_TEMPERATURE                    1
+#define IDX_TIME                           2
 
 /**
  * @brief Infiere si se debe activar el riego (Edge AI, 100 % offline).
  * @param Soil_Moisture                    Humedad del suelo (0-100 %)
- * @param Air_temperature_C                Temperatura del aire (grados C)
- * @param Air_humidity_pct                 Humedad relativa del aire (0-100 %)
+ * @param Temperature                      Temperatura ambiente (grados C)
+ * @param Time                             Hora del dia / ciclo temporal
  * @return  1 = abrir valvula (ON)  |  0 = cerrar valvula (OFF)
  */
-inline int predict(float Soil_Moisture, float Air_temperature_C, float Air_humidity_pct) {
-    if (Soil_Moisture <= 59.500000f) {
-        if (Soil_Moisture <= 20.500000f) {
-            if (Air_temperature_C <= 29.695001f) {
-                if (Air_temperature_C <= 29.575000f) {
-                    return 1;  // ON   (confianza 75%)
+inline int predict(float Soil_Moisture, float Temperature, float Time) {
+    if (Time <= 90.500000f) {
+        if (Soil_Moisture <= 59.500000f) {
+            if (Temperature <= 10.500000f) {
+                if (Soil_Moisture <= 20.500000f) {
+                    return 1;  // ON   (confianza 78%)
                 } else {
-                    return 0;  // OFF  (confianza 66%)
+                    return 0;  // OFF  (confianza 64%)
                 }
             } else {
-                if (Soil_Moisture <= 18.500000f) {
-                    return 1;  // ON   (confianza 79%)
+                if (Temperature <= 25.500000f) {
+                    return 1;  // ON   (confianza 77%)
                 } else {
-                    return 1;  // ON   (confianza 65%)
+                    return 1;  // ON   (confianza 98%)
                 }
             }
         } else {
-            if (Air_temperature_C <= 11.770000f) {
-                if (Soil_Moisture <= 25.000000f) {
-                    return 1;  // ON   (confianza 100%)
+            if (Time <= 39.500000f) {
+                if (Time <= 9.500000f) {
+                    return 0;  // OFF  (confianza 74%)
                 } else {
                     return 0;  // OFF  (confianza 100%)
                 }
             } else {
-                if (Air_temperature_C <= 13.765000f) {
-                    return 1;  // ON   (confianza 78%)
+                if (Temperature <= 22.500000f) {
+                    return 0;  // OFF  (confianza 65%)
                 } else {
-                    return 1;  // ON   (confianza 59%)
+                    return 1;  // ON   (confianza 93%)
                 }
             }
         }
     } else {
-        if (Soil_Moisture <= 69.500000f) {
-            if (Soil_Moisture <= 61.500000f) {
-                if (Air_humidity_pct <= 2.495000f) {
-                    return 1;  // ON   (confianza 80%)
-                } else {
-                    return 0;  // OFF  (confianza 65%)
-                }
-            } else {
-                if (Air_temperature_C <= 20.705000f) {
-                    return 0;  // OFF  (confianza 66%)
-                } else {
-                    return 0;  // OFF  (confianza 62%)
-                }
-            }
-        } else {
-            if (Air_humidity_pct <= 73.240002f) {
-                if (Air_humidity_pct <= 73.055000f) {
-                    return 0;  // OFF  (confianza 68%)
-                } else {
-                    return 1;  // ON   (confianza 85%)
-                }
-            } else {
-                if (Air_humidity_pct <= 87.584999f) {
-                    return 0;  // OFF  (confianza 75%)
-                } else {
-                    return 0;  // OFF  (confianza 70%)
-                }
-            }
-        }
+        return 0;  // OFF  (confianza 100%)
     }
 }
 

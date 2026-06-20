@@ -5,9 +5,9 @@ proyecto_ml_completo.py  —  Pipeline TinyML Edge AI
 Sistema Inteligente de Riego — Parques Urbanos
 ================================================================================
 Entrena un Decision Tree ultra-ligero (max_depth=4) con 3 features del sensor:
-  - Soil Moisture        (humedad de suelo, %)
-  - Air temperature (C)  (temperatura del aire, °C)
-  - Air humidity (%)     (humedad relativa del aire, %)
+  - Soil Moisture   (humedad de suelo, %)
+  - Temperature     (temperatura ambiente, °C)
+  - Time            (hora del dia / ciclo temporal)
 
 Exporta el modelo como código C puro en modelo_edge.h para flashear al ESP32.
 El ESP32 toma decisiones 100% offline — sin internet, sin latencia.
@@ -33,7 +33,7 @@ print(f"\n[INFO] Dataset cargado  : {df.shape[0]} filas x {df.shape[1]} columnas
 print(f"[INFO] Columnas         : {list(df.columns)}")
 
 # ── 2. SELECCION ESTRICTA DE FEATURES (solo sensores del nodo IoT) ───────────
-FEATURES = ["Soil Moisture", "Air temperature (C)", "Air humidity (%)"]
+FEATURES = ["Soil Moisture", "Temperature", "Time"]
 TARGET   = "Status"
 
 X = df[FEATURES].copy()
@@ -105,7 +105,7 @@ def export_tree_to_c(tree_clf, feature_names: list, output_path: str = "modelo_e
         f" * Algoritmo : Decision Tree Classifier (max_depth={tree_clf.max_depth})",
         f" * Accuracy  : {acc * 100:.2f} %   (test 30 %)",
         f" * Nodos     : {tree_.node_count}",
-        f" * Features  : Soil Moisture | Air temperature | Air humidity",
+        f" * Features  : Soil Moisture | Temperature | Time",
         " * Clases    : 0 = OFF (no regar)  |  1 = ON (activar valvula)",
         " *",
         " * -- USO EN ESP32 (Arduino IDE / PlatformIO) ----------------------",
@@ -140,8 +140,8 @@ def export_tree_to_c(tree_clf, feature_names: list, output_path: str = "modelo_e
         "/**",
         " * @brief Infiere si se debe activar el riego (Edge AI, 100 % offline).",
         f" * @param {c_names[0]:<32} Humedad del suelo (0-100 %)",
-        f" * @param {c_names[1]:<32} Temperatura del aire (grados C)",
-        f" * @param {c_names[2]:<32} Humedad relativa del aire (0-100 %)",
+        f" * @param {c_names[1]:<32} Temperatura ambiente (grados C)",
+        f" * @param {c_names[2]:<32} Hora del dia / ciclo temporal",
         " * @return  1 = abrir valvula (ON)  |  0 = cerrar valvula (OFF)",
         " */",
         "inline int predict(" + ", ".join(f"float {n}" for n in c_names) + ") {",
