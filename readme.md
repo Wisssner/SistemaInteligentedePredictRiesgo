@@ -7,7 +7,7 @@ Practicas Pre-Profesionales · Lima, Peru
 
 ## Concepto central: el modelo vive en el ESP32
 
-El nucleo del sistema es un **Decision Tree Classifier** (max_depth=4) entrenado
+El nucleo del sistema es un **Decision Tree Classifier** (max_depth=8) entrenado
 con datos reales del dataset TARP (100,000 muestras) y exportado como **codigo C
 puro** al archivo `modelo_edge.h`. Ese archivo se sube directamente al ESP32,
 que ejecuta la inferencia de forma completamente offline.
@@ -52,17 +52,35 @@ Sensores (DHT22 + SEN0193 + RTC)
 
 | Metrica | Valor |
 |---------|-------|
-| **Accuracy** | **87.19 %** |
-| Precision OFF | 0.86 |
-| Recall OFF | 0.87 |
-| F1-score OFF | 0.86 |
-| Precision ON | 0.89 |
-| Recall ON | 0.87 |
-| F1-score ON | 0.88 |
-| Nodos del arbol | **17** (ultra-ligero) |
-| Tamano modelo_edge.h | 2,832 bytes |
+| **Accuracy** | **91.08 %** |
+| Precision OFF | 0.907 |
+| Recall OFF | 0.900 |
+| F1-score OFF | 0.903 |
+| Precision ON | 0.914 |
+| Recall ON | 0.920 |
+| F1-score ON | 0.917 |
+| Nodos del arbol | **147** |
 | Muestras de entrenamiento | 70,000 |
 | Muestras de test | 30,000 |
+
+### Por que Decision Tree y no Gradient Boosting o Random Forest
+
+Durante el desarrollo se compararon seis configuraciones de modelo:
+
+| Modelo | Accuracy | Flash ESP32 | Exportacion a C |
+|--------|----------|-------------|-----------------|
+| DT max_depth=4 | 87.19 % | ~2 KB | Manual (sin deps) |
+| **DT max_depth=8** | **91.08 %** | **~8 KB** | **Manual (sin deps)** |
+| RF 100 arboles depth=8 | 91.02 % | ~500 KB | Requiere micromlgen |
+| RF 200 arboles depth=10 | 91.09 % | ~1 MB | Requiere micromlgen |
+| GB 100 est. depth=4 | 91.07 % | ~300 KB | Requiere micromlgen |
+| GB 200 est. depth=5 | 91.49 % | ~800 KB | Requiere micromlgen |
+
+**Decision:** el GB ganador supera al DT(8) en solo 0.4 pp pero requeriria cientos
+de KB de flash adicional y una libreria externa para la exportacion. Para un
+sistema de riego de parque urbano, ese margen no justifica el coste en recursos.
+El DT(8) con 91% de accuracy es la opcion pragmatica: mas ligero, exportable en
+C puro y completamente funcional en un ESP32 de bajo costo.
 
 ### Features utilizadas
 
@@ -139,7 +157,7 @@ El script:
 1. Carga `TARP.csv` (features: Soil Moisture, Temperature, Time)
 2. Mapea Status: ON → 1, OFF → 0
 3. Split 70/30 estratificado
-4. Entrena Decision Tree con max_depth=4
+4. Entrena Decision Tree con max_depth=8
 5. Imprime Accuracy, Precision, Recall, F1 y matriz de confusion
 6. Exporta el modelo a `modelo_edge.h`
 

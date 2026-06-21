@@ -4,7 +4,7 @@
 proyecto_ml_completo.py  —  Pipeline TinyML Edge AI
 Sistema Inteligente de Riego — Parques Urbanos
 ================================================================================
-Entrena un Decision Tree ultra-ligero (max_depth=4) con 3 features del sensor:
+Entrena un Decision Tree (max_depth=8) con 3 features del sensor:
   - Soil Moisture   (humedad de suelo, %)
   - Temperature     (temperatura ambiente, °C)
   - Time            (hora del dia / ciclo temporal)
@@ -55,7 +55,7 @@ print(f"\n[INFO] Train : {len(X_train)} muestras")
 print(f"[INFO] Test  : {len(X_test)} muestras")
 
 # ── 4. ENTRENAMIENTO — DECISION TREE max_depth=4 ─────────────────────────────
-clf = DecisionTreeClassifier(max_depth=4, random_state=42)
+clf = DecisionTreeClassifier(max_depth=8, random_state=42)
 clf.fit(X_train, y_train)
 
 y_pred = clf.predict(X_test)
@@ -63,7 +63,7 @@ acc    = accuracy_score(y_test, y_pred)
 
 sep = "-" * 55
 print(f"\n{sep}")
-print("  RESULTADOS -- Decision Tree (max_depth=4)")
+print("  RESULTADOS -- Decision Tree (max_depth=8)")
 print(sep)
 print(f"  Accuracy : {acc:.4f}  ({acc * 100:.2f} %)")
 print()
@@ -102,7 +102,7 @@ def export_tree_to_c(tree_clf, feature_names: list, output_path: str = "modelo_e
         " * Sistema Inteligente de Riego -- Parques Urbanos",
         " * Generado automaticamente por proyecto_ml_completo.py",
         " *",
-        f" * Algoritmo : Decision Tree Classifier (max_depth={tree_clf.max_depth})",
+        f" * Algoritmo : Decision Tree Classifier (max_depth={tree_clf.max_depth})  [TinyML pragmatico]",
         f" * Accuracy  : {acc * 100:.2f} %   (test 30 %)",
         f" * Nodos     : {tree_.node_count}",
         f" * Features  : Soil Moisture | Temperature | Time",
