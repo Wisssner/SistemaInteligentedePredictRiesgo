@@ -8,22 +8,22 @@ Practicas Pre-Profesionales · Lima, Peru
 ## Concepto central: el modelo vive en el ESP32
 
 El nucleo del sistema es un **Decision Tree Classifier** (max_depth=4) entrenado
-con datos de sensores reales (TARP.csv) y exportado como **codigo C puro** al
-archivo `modelo_edge.h`. Ese archivo se sube directamente al microcontrolador
-ESP32, que ejecuta la inferencia de forma completamente offline.
+con datos reales del dataset TARP (100,000 muestras) y exportado como **codigo C
+puro** al archivo `modelo_edge.h`. Ese archivo se sube directamente al ESP32,
+que ejecuta la inferencia de forma completamente offline.
 
 ```
-Sensores (DHT22 + SEN0193)
+Sensores (DHT22 + SEN0193 + RTC)
         │
         ▼
 ┌─────────────────────────────────────────────────────────┐
 │                   ESP32  (Edge AI)                      │
 │                                                         │
-│  float sm   = leerHumedadSuelo();                       │
-│  float temp = dht.readTemperature();                    │
-│  float hum  = dht.readHumidity();                       │
+│  float sm   = leerHumedadSuelo();   // SEN0193          │
+│  float temp = dht.readTemperature();// DHT22            │
+│  float t    = horaDelDia();         // RTC / millis()   │
 │                                                         │
-│  int decision = predict(sm, temp, hum);   // modelo_edge.h │
+│  int decision = predict(sm, temp, t); // modelo_edge.h  │
 │  digitalWrite(VALVE_PIN, decision);                     │
 │                                                         │
 │  // Si hay WiFi: reporta telemetria via HTTP            │
@@ -48,6 +48,36 @@ Sensores (DHT22 + SEN0193)
 
 ---
 
+## Metricas del modelo
+
+| Metrica | Valor |
+|---------|-------|
+| **Accuracy** | **87.19 %** |
+| Precision OFF | 0.86 |
+| Recall OFF | 0.87 |
+| F1-score OFF | 0.86 |
+| Precision ON | 0.89 |
+| Recall ON | 0.87 |
+| F1-score ON | 0.88 |
+| Nodos del arbol | **17** (ultra-ligero) |
+| Tamano modelo_edge.h | 2,832 bytes |
+| Muestras de entrenamiento | 70,000 |
+| Muestras de test | 30,000 |
+
+### Features utilizadas
+
+| Feature | Correlacion con Status | Sensor en ESP32 |
+|---------|----------------------|-----------------|
+| `Soil Moisture` | r = -0.32 | SEN0193 |
+| `Temperature` | r = +0.30 | DHT22 |
+| `Time` | r = -0.26 | RTC DS3231 / millis() |
+
+Estas tres features son los predictores con mayor correlacion real en el
+dataset TARP. Features como `Air temperature (C)` o `Air humidity (%)` tienen
+correlacion casi nula (r < 0.01) y se descartaron.
+
+---
+
 ## Arquitectura de archivos
 
 ```
@@ -63,7 +93,8 @@ Sensores (DHT22 + SEN0193)
 
 ## modelo_edge.h — como funciona
 
-El archivo generado contiene una funcion `predict()` en C++ puro:
+El archivo generado contiene una funcion `predict()` en C++ puro con 17 nodos
+`if/else` anidados. Sin matrices, sin memoria dinamica, sin librerias externas:
 
 ```cpp
 #include "modelo_edge.h"
@@ -71,23 +102,20 @@ El archivo generado contiene una funcion `predict()` en C++ puro:
 void loop() {
     float sm   = leerHumedadSuelo();        // 0-100 %
     float temp = dht.readTemperature();     // grados C
-    float hum  = dht.readHumidity();        // 0-100 %
+    float t    = (float)hora_actual;        // hora del dia (0-23) o millis()/1000
 
-    int decision = predict(sm, temp, hum);
+    int decision = predict(sm, temp, t);
     // decision == 1 → abrir valvula (regar)
     // decision == 0 → cerrar valvula
 
     digitalWrite(VALVE_PIN, decision);
 
-    // Telemetria opcional (no bloquea el riego)
+    // Telemetria opcional — no bloquea el riego si no hay WiFi
     if (WiFi.isConnected()) {
-        enviarTelemetria(sm, temp, hum, decision);
+        enviarTelemetria(sm, temp, t, decision);
     }
 }
 ```
-
-La funcion interna es un bloque de `if/else` anidados — sin matrices,
-sin memoria dinamica, sin dependencias. Ocupa menos de 2 KB de flash.
 
 ---
 
@@ -95,8 +123,10 @@ sin memoria dinamica, sin dependencias. Ocupa menos de 2 KB de flash.
 
 ### Requisitos
 
-```
-pip install scikit-learn pandas numpy micromlgen
+```bash
+pip install scikit-learn pandas numpy
+# Opcional para exportacion alternativa:
+pip install micromlgen
 ```
 
 ### Ejecutar el pipeline
@@ -106,11 +136,12 @@ python proyecto_ml_completo.py
 ```
 
 El script:
-1. Carga `TARP.csv` (features: Soil Moisture, Air temperature (C), Air humidity (%))
-2. Mapea Status: ON→1, OFF→0
-3. Entrena un Decision Tree con max_depth=4
-4. Imprime Accuracy, Precision, Recall, F1
-5. Exporta el modelo a `modelo_edge.h`
+1. Carga `TARP.csv` (features: Soil Moisture, Temperature, Time)
+2. Mapea Status: ON → 1, OFF → 0
+3. Split 70/30 estratificado
+4. Entrena Decision Tree con max_depth=4
+5. Imprime Accuracy, Precision, Recall, F1 y matriz de confusion
+6. Exporta el modelo a `modelo_edge.h`
 
 ---
 
@@ -121,14 +152,13 @@ El script:
 ```bash
 pip install flask flask-cors requests
 export FIREBASE_URL=https://tu-proyecto-default-rtdb.firebaseio.com
-export FLASK_DEBUG=false
 python app.py
 ```
 
 ### Endpoints
 
 #### `POST /api/iot/telemetry`
-El ESP32 reporta cada lectura y la decision que tomo localmente.
+El ESP32 reporta cada lectura y la decision que ya tomo localmente.
 
 ```json
 // Request
@@ -158,19 +188,11 @@ Envia una orden de control manual forzado. El ESP32 hace polling de
 
 | command | Efecto |
 |---------|--------|
-| `1`     | Abrir valvula (forzar riego) |
-| `0`     | Cerrar valvula (detener riego) |
+| `1` | Abrir valvula (forzar riego) |
+| `0` | Cerrar valvula (detener riego) |
 
 #### `GET /api/iot/status`
 Retorna el ultimo estado del nodo y el override activo.
-
-```json
-{
-    "ok": true,
-    "latest_telemetry": { ... },
-    "active_override":  { ... }
-}
-```
 
 #### `GET /health`
 Verificacion de disponibilidad del servidor.
@@ -179,15 +201,15 @@ Verificacion de disponibilidad del servidor.
 
 ## Dashboard Streamlit
 
-El panel municipal lee datos desde Firebase y muestra:
+Panel municipal mobile-friendly que lee Firebase y muestra:
 
-- **Humedad de suelo** actual (con indicador de nivel)
-- **Temperatura del aire**
-- **Humedad relativa del aire**
-- **Estado de la valvula** (banner verde/rojo)
-- **Historial de las ultimas lecturas** con tabla coloreada
+- **Humedad de suelo** actual con indicador de nivel
+- **Temperatura** del ambiente
+- **Estado de la valvula** (banner verde = ON / rojo = OFF)
+- **Historial** de las ultimas 15 lecturas con tabla coloreada
 - **Boton "FORZAR RIEGO MANUAL"** — envia override via `/api/iot/override`
 - **Boton "Detener Riego"** — envia comando 0
+- Auto-refresh cada 15 segundos
 
 ### Arranque
 
@@ -198,57 +220,50 @@ export FIREBASE_URL=https://tu-proyecto-default-rtdb.firebaseio.com
 streamlit run dashboard_streamlit.py
 ```
 
-El dashboard se auto-refresca cada 15 segundos.
-
 ---
 
 ## Flujo completo de datos
 
 ```
 1. ESP32 lee sensores cada N segundos
-2. Llama a predict(sm, temp, hum) — decision local, sin red
-3. Activa/desactiva la valvula
-4. Si hay WiFi: POST /api/iot/telemetry  →  Flask  →  Firebase
-5. ESP32 consulta Firebase control/override periodicamente
+2. Llama a predict(sm, temp, time) — decision local, sin red
+3. Activa o desactiva la valvula fisicamente
+4. Si hay WiFi: POST /api/iot/telemetry → Flask → Firebase
+5. ESP32 consulta Firebase /control/override periodicamente
 6. Si hay override activo: lo ejecuta (abre o cierra valvula)
 7. Dashboard municipal lee Firebase y muestra estado en tiempo real
-8. Operador puede pulsar "Forzar Riego Manual" en el dashboard
+8. Operador pulsa "Forzar Riego Manual" en el dashboard si es necesario
 ```
 
 ---
 
 ## Variables de entorno
 
-| Variable       | Descripcion                         | Ejemplo |
-|----------------|-------------------------------------|---------|
-| `FIREBASE_URL` | URL base de Firebase Realtime DB    | `https://xxx-rtdb.firebaseio.com` |
-| `API_BASE_URL` | URL del servidor Flask (dashboard)  | `http://localhost:5000` |
-| `PORT`         | Puerto del servidor Flask           | `5000` |
-| `FLASK_DEBUG`  | Modo debug Flask (`true`/`false`)   | `false` |
+| Variable | Descripcion | Ejemplo |
+|----------|-------------|---------|
+| `FIREBASE_URL` | URL base de Firebase Realtime DB | `https://xxx-rtdb.firebaseio.com` |
+| `API_BASE_URL` | URL del servidor Flask (para el dashboard) | `http://localhost:5000` |
+| `PORT` | Puerto del servidor Flask | `5000` |
+| `FLASK_DEBUG` | Modo debug (`true`/`false`) | `false` |
 
 ---
 
 ## Dataset TARP.csv
 
-El modelo fue entrenado con el dataset TARP (Tree Autonomous Riego Predictor).
-Features utilizadas (de las 15 columnas disponibles):
+100,000 muestras con 14 features de sensores agricolas y campo objetivo `Status` (ON/OFF).
+De las 14 features disponibles, el modelo usa las 3 con mayor poder predictivo:
 
-| Feature              | Descripcion                  | Rango tipico |
-|----------------------|------------------------------|--------------|
-| `Soil Moisture`      | Humedad del suelo            | 0-100 %      |
-| `Air temperature (C)`| Temperatura del aire         | 10-45 °C     |
-| `Air humidity (%)`   | Humedad relativa del aire    | 20-100 %     |
-
-Target: `Status` — `ON` (regar) o `OFF` (no regar).
-
-Se usan solo estas 3 features porque son exactamente las que mide el nodo
-IoT con los sensores SEN0193 (suelo) y DHT22 (aire).
+| Feature | Descripcion | Rango tipico |
+|---------|-------------|--------------|
+| `Soil Moisture` | Humedad del suelo | 0-100 % |
+| `Temperature` | Temperatura ambiente | 10-45 °C |
+| `Time` | Ciclo temporal / hora del dia | 0-143 |
 
 ---
 
-## Dependencias principales
+## Dependencias
 
-```txt
+```
 flask
 flask-cors
 requests
@@ -256,5 +271,5 @@ scikit-learn
 pandas
 numpy
 streamlit
-micromlgen          # pip install micromlgen  (opcional, para export alternativo)
+micromlgen   # opcional — pip install micromlgen
 ```
