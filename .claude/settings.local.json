@@ -9,7 +9,9 @@
       "Bash(set PYTHONIOENCODING=utf-8)",
       "Bash(where pdflatex:*)",
       "Bash(where xelatex:*)",
-      "Bash(\"C:/Users/John/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe\" -interaction=nonstopmode diagrama_flujo_sistema.tex)"
+      "Bash(\"C:/Users/John/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe\" -interaction=nonstopmode diagrama_flujo_sistema.tex)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Refactor hibrido: Telegram Bot + Dashboard academico + orquestador Flask *)"
     ]
   }
 }
