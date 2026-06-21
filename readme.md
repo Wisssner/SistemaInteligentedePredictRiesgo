@@ -14,37 +14,46 @@ que ejecuta la inferencia de forma completamente offline.
 
 ```
 Sensores (DHT22 + SEN0193 + RTC)
-        │
-        ▼
-┌─────────────────────────────────────────────────────────┐
-│                   ESP32  (Edge AI)                      │
-│                                                         │
-│  float sm   = leerHumedadSuelo();   // SEN0193          │
-│  float temp = dht.readTemperature();// DHT22            │
-│  float t    = horaDelDia();         // RTC / millis()   │
-│                                                         │
-│  int decision = predict(sm, temp, t); // modelo_edge.h  │
-│  digitalWrite(VALVE_PIN, decision);                     │
-│                                                         │
-│  // Si hay WiFi: reporta telemetria via HTTP            │
-│  // Si no hay WiFi: sigue funcionando igual             │
-└─────────────────────────────────────────────────────────┘
-        │  (WiFi, cuando disponible)
-        ▼
-  Flask API REST  ──►  Firebase Realtime DB
-        │
-        ▼
-  Dashboard Streamlit  (panel municipal movil)
+        |
+        v
++-------------------------------------------------------+
+|              ESP32  (nucleo Edge AI)                  |
+|                                                       |
+|  predict(soil, temp, time) <- modelo_edge.h           |
+|  Decide OFFLINE, sin internet                         |
+|  -> Activa / desactiva valvula fisicamente            |
+|                                                       |
+|  Si WiFi: POST /api/iot/telemetry                     |
+|  Payload: soil + temp + humidity + decision           |
++-------------------------------------------------------+
+        |
+        v  HTTP (cuando hay WiFi)
++-------------------------------------------------------+
+|           Flask API  (orquestador)                    |
+|                                                       |
+|  +-- Firebase Realtime DB                             |
+|  |   Historial, ultimo estado, overrides              |
+|  |                    |                               |
+|  |                    v                               |
+|  |         Dashboard Streamlit                        |
+|  |         Graficos historicos para jurado            |
+|  |         Control override manual                    |
+|  |                                                    |
+|  +-- API de Telegram                                  |
+|      Alerta automatica cuando valvula se abre         |
+|      Comandos: /regar  /detener  /estado              |
++-------------------------------------------------------+
 ```
 
-**Por que TinyML en el ESP32?**
+**Garantia de funcionamiento offline:**
 
 | Escenario              | Resultado |
 |------------------------|-----------|
-| WiFi disponible        | Riega + reporta telemetria |
+| WiFi disponible        | Riega + telemetria + alerta Telegram |
 | Corte de internet      | **Riega igual** — decision autonoma |
 | Servidor Flask caido   | **Riega igual** — no hay dependencia |
 | Firebase inaccesible   | **Riega igual** — solo pierde historial |
+| Telegram no disponible | **Riega igual** — solo pierde notificacion |
 
 ---
 
@@ -101,8 +110,9 @@ correlacion casi nula (r < 0.01) y se descartaron.
 ```
 ├── proyecto_ml_completo.py   # Entrena el DT y genera modelo_edge.h
 ├── modelo_edge.h             # Codigo C puro para el ESP32 (auto-generado)
-├── app.py                    # API REST de telemetria y override
-├── dashboard_streamlit.py    # Panel municipal (Firebase, override manual)
+├── app.py                    # Orquestador: Firebase + Telegram + override
+├── dashboard_streamlit.py    # Panel academico (graficos historicos + control)
+├── telegram_setup.txt        # Guia paso a paso para configurar el bot
 ├── TARP.csv                  # Dataset de entrenamiento (no incluido en repo)
 └── requirements.txt
 ```
@@ -176,7 +186,8 @@ python app.py
 ### Endpoints
 
 #### `POST /api/iot/telemetry`
-El ESP32 reporta cada lectura y la decision que ya tomo localmente.
+El ESP32 reporta lectura + decision. El servidor guarda en Firebase y, si
+`valve_decision == 1`, envia una alerta automatica a Telegram.
 
 ```json
 // Request
@@ -189,12 +200,12 @@ El ESP32 reporta cada lectura y la decision que ya tomo localmente.
 }
 
 // Response 201
-{ "ok": true, "firebase_key": "-NxxxxxYYYY" }
+{ "ok": true, "firebase_key": "-NxxxxxYYYY", "telegram_sent": true }
 ```
 
 #### `POST /api/iot/override`
-Envia una orden de control manual forzado. El ESP32 hace polling de
-`/control/override` en Firebase y obedece el comando.
+Orden de control manual desde el Dashboard. Escribe en Firebase;
+el ESP32 hace polling y obedece. Tambien notifica por Telegram.
 
 ```json
 // Request
@@ -209,11 +220,20 @@ Envia una orden de control manual forzado. El ESP32 hace polling de
 | `1` | Abrir valvula (forzar riego) |
 | `0` | Cerrar valvula (detener riego) |
 
+#### `POST /api/telegram/webhook`
+Telegram envia aqui los mensajes recibidos por el bot.
+
+| Comando | Accion |
+|---------|--------|
+| `/regar [segundos]` | Override ON por N segundos (default 120) |
+| `/detener` | Override OFF inmediato |
+| `/estado` | Responde con ultima lectura del nodo |
+
 #### `GET /api/iot/status`
 Retorna el ultimo estado del nodo y el override activo.
 
 #### `GET /health`
-Verificacion de disponibilidad del servidor.
+Verifica disponibilidad e informa si Telegram y Firebase estan configurados.
 
 ---
 
@@ -260,9 +280,13 @@ streamlit run dashboard_streamlit.py
 | Variable | Descripcion | Ejemplo |
 |----------|-------------|---------|
 | `FIREBASE_URL` | URL base de Firebase Realtime DB | `https://xxx-rtdb.firebaseio.com` |
+| `TELEGRAM_BOT_TOKEN` | Token del bot obtenido de BotFather | `1234567890:AAFxxx...` |
+| `TELEGRAM_CHAT_ID` | ID del chat que recibe las alertas | `123456789` |
 | `API_BASE_URL` | URL del servidor Flask (para el dashboard) | `http://localhost:5000` |
 | `PORT` | Puerto del servidor Flask | `5000` |
 | `FLASK_DEBUG` | Modo debug (`true`/`false`) | `false` |
+
+Ver `telegram_setup.txt` para instrucciones paso a paso de configuracion del bot.
 
 ---
 
@@ -289,5 +313,6 @@ scikit-learn
 pandas
 numpy
 streamlit
+plotly
 micromlgen   # opcional — pip install micromlgen
 ```

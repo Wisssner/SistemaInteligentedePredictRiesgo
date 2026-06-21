@@ -1,0 +1,119 @@
+================================================================
+ GUIA DE CONFIGURACION — Bot de Telegram para Riego ESP32
+ Sistema Inteligente de Riego Edge AI — Parques Urbanos
+================================================================
+
+PASO 1: Crear el bot con BotFather
+-----------------------------------
+1. Abre Telegram y busca el usuario: @BotFather
+2. Inicia una conversacion y envia el comando:
+      /newbot
+3. BotFather te pedira:
+      - Nombre del bot (ej: "Riego Parque Central")
+      - Username del bot (debe terminar en "bot", ej: riego_parque_bot)
+4. BotFather te respondera con tu TOKEN, que tiene este formato:
+      1234567890:AAFxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+5. Guarda ese TOKEN. Lo usaras como variable de entorno:
+      TELEGRAM_BOT_TOKEN=1234567890:AAFxxxxxxx...
+
+
+PASO 2: Obtener tu CHAT_ID
+-----------------------------------
+Hay dos formas de obtener el CHAT_ID del chat al que el bot enviara alertas:
+
+OPCION A (mas facil):
+1. Envia cualquier mensaje a tu bot recien creado desde Telegram
+2. Abre esta URL en tu navegador (reemplaza <TOKEN>):
+      https://api.telegram.org/bot<TOKEN>/getUpdates
+3. Busca en el JSON el campo:
+      "chat": { "id": 123456789, ... }
+4. Ese numero es tu CHAT_ID:
+      TELEGRAM_CHAT_ID=123456789
+
+OPCION B (grupo):
+1. Agrega el bot a un grupo de Telegram
+2. Envia un mensaje en el grupo mencionando al bot (@riego_parque_bot)
+3. Abre la misma URL getUpdates
+4. El CHAT_ID de un grupo es negativo, ej: -987654321
+
+
+PASO 3: Configurar las variables de entorno en el servidor Flask
+-----------------------------------
+Agrega estas variables antes de arrancar app.py:
+
+   En Linux/Mac:
+      export TELEGRAM_BOT_TOKEN=1234567890:AAFxxx...
+      export TELEGRAM_CHAT_ID=123456789
+      export FIREBASE_URL=https://tu-proyecto-rtdb.firebaseio.com
+      python app.py
+
+   En Windows:
+      set TELEGRAM_BOT_TOKEN=1234567890:AAFxxx...
+      set TELEGRAM_CHAT_ID=123456789
+      set FIREBASE_URL=https://tu-proyecto-rtdb.firebaseio.com
+      python app.py
+
+   En un archivo .env (con python-dotenv):
+      TELEGRAM_BOT_TOKEN=1234567890:AAFxxx...
+      TELEGRAM_CHAT_ID=123456789
+      FIREBASE_URL=https://tu-proyecto-rtdb.firebaseio.com
+
+
+PASO 4: Registrar el Webhook de Telegram
+-----------------------------------
+El webhook le dice a Telegram donde enviar los mensajes que reciba el bot.
+La URL debe ser PUBLICA y con HTTPS.
+
+   Para pruebas locales usa ngrok:
+      ngrok http 5000
+      (copia la URL https://xxxx.ngrok.io que aparece)
+
+   Registra el webhook con este comando curl (o desde Postman):
+      curl -X POST \
+        "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+        -H "Content-Type: application/json" \
+        -d '{"url": "https://xxxx.ngrok.io/api/telegram/webhook"}'
+
+   Para produccion (servidor con dominio propio):
+      curl -X POST \
+        "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+        -d '{"url": "https://tudominio.com/api/telegram/webhook"}'
+
+   Verificar que el webhook esta registrado:
+      https://api.telegram.org/bot<TOKEN>/getWebhookInfo
+
+
+PASO 5: Probar el bot
+-----------------------------------
+Desde Telegram, envia estos comandos a tu bot:
+
+   /regar          -> Activa riego por 120 segundos (default)
+   /regar 300      -> Activa riego por 300 segundos
+   /detener        -> Cierra la valvula inmediatamente
+   /estado         -> Consulta el ultimo dato del nodo ESP32
+
+El servidor Flask respondera al bot y actualizara Firebase.
+El ESP32 detectara el override en su proximo ciclo de polling.
+
+
+PASO 6: Alertas automaticas
+-----------------------------------
+Cuando el ESP32 active la valvula autonomamente (decision del modelo TinyML),
+el servidor Flask enviara automaticamente un mensaje al chat configurado:
+
+   Ejemplo de alerta recibida en Telegram:
+   ----------------------------------------
+   Riego activado por el ESP32
+   Humedad de suelo: 28.5%
+   Temperatura: 31.2 C
+   Humedad del aire: 45.0%
+   Nodo: esp32_nodo_1 | 2026-06-21T14:32:00Z
+   ----------------------------------------
+
+NOTA IMPORTANTE:
+   - El modelo TinyML del ESP32 decide OFFLINE (sin internet).
+   - Las notificaciones Telegram solo se envian cuando el ESP32
+     tiene WiFi y reporta la telemetria al servidor Flask.
+   - Sin WiFi, el ESP32 sigue regando, pero no llega la notificacion.
+
+================================================================
